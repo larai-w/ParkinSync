@@ -39,3 +39,35 @@ The system follows an event-driven, serverless architecture using AWS primitives
 1. Clone the repository:
    ```bash
    git clone [https://github.com/larai-w/ParkinSync.git](https://github.com/larai-w/ParkinSync.git)
+
+2. Navigate to the development branch:
+
+
+   ```bash
+   git checkout development
+
+3. Deploy the Lambda function using your preferred framework (AWS SAM, Terraform, or AWS Management Console).
+
+## Security & Ethics
+Security and ethics are core non-functional requirements of ParkinSync:
+
+Principle of Least Privilege (PoLP): IAM roles are strictly scoped to necessary resources to minimize the attack surface.
+
+Data Anonymization: Personally Identifiable Information (PII) is stripped before ingestion into the analytics engine to protect patient and caregiver privacy.
+
+Zero Hardcoding Policy: All API keys and sensitive tokens (e.g., Google Sheets API, Weatherbit API) are managed via AWS Secrets Manager.
+
+## Branching Strategy
+The project follows a standard Git-based workflow as outlined in Document 1:
+
+main: Contains production-ready code and finalized documentation.
+
+development: Used for active iteration and feature testing. All merges to main require manual review and verification.
+
+## License
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+## Author
+**larai-w**
+MSIT Candidate, University of the People
+Department of CS & MSIT
