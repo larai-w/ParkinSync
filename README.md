@@ -21,7 +21,7 @@ The system follows an event-driven, serverless architecture using AWS primitives
 - **Security:** AWS Secrets Manager & AWS KMS
 - **Analytics:** Amazon SageMaker
 
-![System Architecture](architecture/System_Architecture.svg)
+![Architecture Diagram](design/architecture_diagram.svg)
 
 ## Directory Structure
 - `/src`: Python source code for AWS Lambda functions.
