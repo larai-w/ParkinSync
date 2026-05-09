@@ -1,16 +1,20 @@
-# ParkinSync: Bridging Analog Caregiving and Cloud Analytics for Parkinson’s Disease
+# ParkinSync: Automated Parkinson's Medical Log Pipeline
 
-## Project Overview
-**ParkinSync** is a serverless Clinical Decision Support System (CDSS) designed to address the structural fragmentation of healthcare data in rural home-care settings. Specifically focused on Parkinson's Disease (PD) management in Yabu City, Hyogo, Japan, the system creates a secure bridge between traditional paper-based caregiver logs and modern cloud analytics.
+## 📝 Project Overview
+**ParkinSync** is a cloud-native automation pipeline designed to digitize handwritten medical logs for Parkinson's disease patients. The system captures medical data from PDFs via Amazon Textract and enriches it with historical meteorological data to help clinicians analyze how environmental factors influence symptoms.
 
-By preserving the existing paper-based workflow, ParkinSync ensures "zero-disruption" to the caregivers' routine while leveraging **AWS Textract** for automated digitization and **Amazon SageMaker** for sophisticated correlation analysis between medication, environment, and motor symptoms.
-
-## Key Features
+## 🚀 Key Features
 - **Zero-Disruption Data Ingestion:** Maintains the analog paper-based input preferred by elderly caregivers while automating digital conversion.
 - **AI-Powered OCR Engine:** Utilizes AWS Textract to extract structured data from handwritten logs with a high accuracy target (>90%).
 - **Spatial-Temporal Risk Management:** Implements a "Spatial Curfew" protocol to track and enforce safety boundaries in confined spaces (e.g., bathrooms) during high-risk windows (e.g., post-rehabilitation fatigue after 22:00).
 - **Hyper-Local Weather Integration:** Synchronizes local meteorological data (temperature and barometric pressure) to identify environmental triggers for "OFF" periods.
 - **Human-in-the-Loop (HITL) Verification:** Integrates a Google Sheets interface for family members to verify and correct extracted data, ensuring clinical reliability.
+
+- **Multi-Cloud Integration**: Seamlessly connects AWS (Lambda, S3, Textract, Secrets Manager) with Google Cloud (Sheets API).
+- **Historical Weather Enrichment**: Uses the **Visual Crossing API** to fetch weather conditions specifically for the date written on the medical log, not just the upload time.
+- **Localization (JST)**: Implemented time-zone handling to ensure all timestamps are in **Japan Standard Time (UTC+9)** for clinical relevance.
+- **Enterprise-Grade Security**: Zero hardcoded credentials. All API keys and service account JSONs are securely managed using **AWS Secrets Manager**.
+- **Automated Table Extraction**: Utilizes Textract's `TABLES` feature to map complex medical logs directly into structured spreadsheet rows.
 
 ## System Architecture
 The system follows an event-driven, serverless architecture using AWS primitives:
@@ -18,14 +22,15 @@ The system follows an event-driven, serverless architecture using AWS primitives
 - **Compute:** AWS Lambda (Python 3.12)
 - **OCR Engine:** Amazon Textract
 - **Database/Visualization:** Google Sheets API v4
-- **Security:** AWS Secrets Manager & AWS KMS
+- **Security:** AWS Secrets Manager
 - **Analytics:** Amazon SageMaker
 
 ![Architecture Diagram](/architecture/architecture_diagram.svg)
 
-## Directory Structure
+## 📂 Directory Structure
 - `/src`: Python source code for AWS Lambda functions.
 - `/docs`: Technical reports (Unit 3), progress logs, and academic documentation.
+- `/tests`: test code
 - `/architecture`: High-resolution system diagrams and data flowcharts.
 - `/design`: Templates for the paper-based caregiver logs.
 

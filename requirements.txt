@@ -1,0 +1,7 @@
+# AWS SDK for Python
+boto3
+# HTTP library for Weather API calls
+requests
+# Google APIs Client Library
+google-api-python-client
+google-auth

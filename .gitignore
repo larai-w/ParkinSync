@@ -1,1 +1,16 @@
+# Ignore Python bytecode
+__pycache__/
+*.py[cod]
 
+# Ignore sensitive credential files (Very Important!)
+*.json
+.env
+secret_key.txt
+
+# Ignore local IDE settings
+.vscode/
+.idea/
+
+# Ignore test caches
+.pytest_cache/
+.vscode/
