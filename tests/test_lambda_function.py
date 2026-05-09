@@ -38,7 +38,6 @@ class TestParkinSyncLambda(unittest.TestCase):
         
         response = lambda_function.lambda_handler(event, None)
         self.assertEqual(response['statusCode'], 404)
-        self.assertIn('No table found', response['body'])
-
+        self.assertIn('No table detected', response['body'])
 if __name__ == '__main__':
     unittest.main()
