@@ -23,7 +23,7 @@ The central data repository is divided into a multi-tab structure to maintain co
 * **Purpose:** Stores the 3-hour continuous climate data streamed asynchronously from localized SwitchBot IoT sensors via `ParkinSync_IndoorTemp_Logger`.
 * **Action Required:** None. This tab is completely automated and should not be modified manually.
 
-### 👑 "Master Sheet" (The 25-Column Clinical Ledger)
+### 👑 "Master Sheet" (The Clinical Ledger)
 * **Purpose:** The definitive clinical timeline matching normalized patient symptoms, medication timings, and environmental summaries.
 * **Human-in-the-Loop (HITL) Validation:** 
   * Built-in spreadsheet formulas calculate the precise medication delays in Column D automatically.
