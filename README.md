@@ -1,78 +1,69 @@
-# ParkinSync: Automated Parkinson's Medical Log Pipeline
+# ParkinSync v1.3.0: Hybrid Serverless Ingestion & Clinical Analytics Pipeline
 
 ## 📝 Project Overview
-**ParkinSync** is a cloud-native automation pipeline designed to digitize handwritten medical logs for Parkinson's disease patients. The system captures medical data from PDFs via Amazon Textract and enriches it with historical meteorological data to help clinicians analyze how environmental factors influence symptoms.
+**ParkinSync** is a clinical-grade, serverless data engineering pipeline designed to bridge the gap between traditional paper-based clinical logging and advanced cloud analytics for Parkinson's Disease care. Optimized for environments facing physical and digital friction (such as rural care settings), the system synchronizes qualitative caregiver observations with continuous, high-fidelity environmental telemetry. 
+
+To guarantee **100% Data Integrity** for medical informatics, v1.3.0 implements a robust **Human-in-the-Loop (HITL)** architecture, bypassing the 57% accuracy limitations of autonomous handwritten OCR by enforcing deterministic manual pre-sanitization prior to cloud ingestion.
 
 ## 🚀 Key Features
-- **Zero-Disruption Data Ingestion:** Maintains the analog paper-based input preferred by elderly caregivers while automating digital conversion.
-- **AI-Powered OCR Engine:** Utilizes AWS Textract to extract structured data from handwritten logs with a high accuracy target (>90%).
-- **Spatial-Temporal Risk Management:** Implements a "Spatial Curfew" protocol to track and enforce safety boundaries in confined spaces (e.g., bathrooms) during high-risk windows (e.g., post-rehabilitation fatigue after 22:00).
-- **Hyper-Local Weather Integration:** Synchronizes local meteorological data (temperature and barometric pressure) to identify environmental triggers for "OFF" periods.
-- **Human-in-the-Loop (HITL) Verification:** Integrates a Google Sheets interface for family members to verify and correct extracted data, ensuring clinical reliability.
 
-- **Multi-Cloud Integration**: Seamlessly connects AWS (Lambda, S3, Textract, Secrets Manager) with Google Cloud (Sheets API).
-- **Historical Weather Enrichment**: Uses the **Visual Crossing API** to fetch weather conditions specifically for the date written on the medical log, not just the upload time.
-- **Localization (JST)**: Implemented time-zone handling to ensure all timestamps are in **Japan Standard Time (UTC+9)** for clinical relevance.
-- **Enterprise-Grade Security**: Zero hardcoded credentials. All API keys and service account JSONs are securely managed using **AWS Secrets Manager**.
-- **Automated Table Extraction**: Utilizes Textract's `TABLES` feature to map complex medical logs directly into structured spreadsheet rows.
+* **Human-in-the-Loop (HITL) Integrity:** Leverages an optimized analog paper interface for elderly caregivers, transitioning into a human-verified data entry step to eliminate the "Garbage In, Garbage Out" (GIGO) phenomenon before AWS ingestion.
+* **Decoupled Dual-Lambda Core:** Splitting backend orchestration into two dedicated, isolated AWS Lambda functions (`ParkinSync_OCR_Handler` and `ParkinSync_IndoorTemp_Logger`) to ensure operational continuity and zero resource contention.
+* **Schedule-Driven IoT Polling:** Employs an Amazon EventBridge cron routine to query the SwitchBot Open API every three hours, securing continuous indoor climate logs separate from active user uploads.
+* **Hyper-Local Meteorological Enrichment:** Queries the Visual Crossing Weather API dynamically based on the historical event date written in the log, tracking environmental triggers (e.g., barometric pressure drops) that influence motor fluctuations.
+* **Spreadsheet-Native Aggregation Layer:** Offloads heavy mathematical metrics (Daily Mean, Minimum, and Maximum environmental statistics) to a multi-tab Google Sheets calculation layout, significantly reducing serverless compute runtime and cloud operational costs.
+* **Enterprise-Grade Security:** Enforces the Principle of Least Privilege (PoLP) via scoped IAM roles and completely eliminates hardcoded credentials by managing all API tokens and Google Service Accounts within **AWS Secrets Manager**.
+* **Clinical Analytics Ready:** Normalizes disparate streams into a unified 25-column standardized schema, providing a pristine data matrix ready for Pearson's r correlation and lag-variable analysis in **Amazon SageMaker**.
 
-## System Architecture
-The system follows an event-driven, serverless architecture using AWS primitives:
-- **Storage:** Amazon S3 (Ingestion and archive)
-- **Compute:** AWS Lambda (Python 3.12)
-- **OCR Engine:** Amazon Textract
-- **Database/Visualization:** Google Sheets API v4
-- **Security:** AWS Secrets Manager
-- **Analytics:** Amazon SageMaker
+## 🏗 System Architecture
+The production pipeline operationalizes event-driven and schedule-driven architectures using AWS cloud primitives:
+* **Storage:** Amazon S3 (Ingestion staging bucket and archive)
+* **Compute:** AWS Lambda (Python 3.12, decoupled micro-functions)
+* **Scheduling:** Amazon EventBridge (3-hour automated cron execution)
+* **OCR / Audit:** Amazon Textract (Form-based key-value parsing for system validation)
+* **Database & Aggregation:** Google Sheets API v4 (Staging and Master Ledger)
+* **Secrets Governance:** AWS Secrets Manager
+* **Analytics Engine:** Amazon SageMaker (Python Pandas / NumPy correlation suite)
 
-![Architecture Diagram](/architecture/architecture_diagram.svg)
+## 📁 Directory Structure
+The repository is organized under a strict Software Configuration Management (SCM) hierarchy to ensure full reproducibility:
+* `/analytics` : Contains v1.3.0 sample datasets and analytical scripts optimized for SageMaker ingestion.
+* `/architecture` : High-resolution system block diagrams and sequence chart maps.
+* `/design` : Bounded analog caregiver log templates and 25-column master schema data definitions.
+* `/docs` : System documentation, deployment guides, and project compliance parameters.
+* `/src` : Production Python source code for AWS Lambda functions (`lambda_function.py`, `indoor_temp_logger.py`).
+* `/tests` : Automated unit testing and integration suite parameters.
 
-## 📂 Directory Structure
-- `/src`: Python source code for AWS Lambda functions.
-- `/docs`: Technical reports (Unit 3), progress logs, and academic documentation.
-- `/tests`: test code
-- `/architecture`: High-resolution system diagrams and data flowcharts.
-- `/design`: Templates for the paper-based caregiver logs.
+## 🏁 Getting Started
 
-## Getting Started
 ### Prerequisites
-- Python 3.12+
-- AWS CLI configured with appropriate IAM permissions.
-- Google Cloud Service Account credentials (JSON).
+* Python 3.12+
+* AWS CLI configured with administrative/appropriate IAM permissions.
+* Google Cloud Platform (GCP) Service Account credentials JSON.
 
 ### Installation & Deployment
-1. Clone the repository:
-   ```bash
+1. Clone the master repository:
+```bash
    git clone [https://github.com/larai-w/ParkinSync.git](https://github.com/larai-w/ParkinSync.git)
 
-2. Navigate to the development branch:
+2. Navigate to the active staging branch:
 
-
-   ```bash
+  ```bash
    git checkout development
 
-3. Deploy the Lambda function using your preferred framework (AWS SAM, Terraform, or AWS Management Console).
+3. Deployment commands for packaging zip archives and updating live code arrays can be reviewed in detail within Appendix A of the system specification report.
 
-## Security & Ethics
-Security and ethics are core non-functional requirements of ParkinSync:
+## 🔒 Security, Ethics & Privacy
+* Principle of Least Privilege (PoLP): Execution roles are explicitly constrained to required S3 buckets and Sheets targets.
 
-Principle of Least Privilege (PoLP): IAM roles are strictly scoped to necessary resources to minimize the attack surface.
+* Data Anonymization: Personally Identifiable Information (PII) is omitted at the ingestion perimeter to maintain strict patient/caregiver clinical privacy.
 
-Data Anonymization: Personally Identifiable Information (PII) is stripped before ingestion into the analytics engine to protect patient and caregiver privacy.
+* Zero-Hardcoding Guardrails: All critical service keys (Google Cloud JSON credentials, SwitchBot developer keys, and Visual Crossing API tokens) are strictly stored and rotated inside AWS Secrets Manager.
 
-Zero Hardcoding Policy: All API keys and sensitive tokens (e.g., Google Sheets API, Weatherbit API) are managed via AWS Secrets Manager.
+## 🌿 Branching Strategy
+* main: Reserved exclusively for fully validated, stable production releases matching live AWS deployments. 
+* development: Used for active iteration, dependency staging, and feature verification testing.
 
-## Branching Strategy
-The project follows a standard Git-based workflow as outlined in Document 1:
+## License: This project is licensed under the MIT License - see the LICENSE file for details.
 
-main: Contains production-ready code and finalized documentation.
-
-development: Used for active iteration and feature testing. All merges to main require manual review and verification.
-
-## License
-This project is licensed under the MIT License - see the LICENSE file for details.
-
-## Author
-**larai-w**
-MSIT Candidate, University of the People
-Department of CS & MSIT
+## Author: **larai-w** — MSIT Candidate, University of the People (Department of Computer Science & MSIT)
