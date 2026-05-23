@@ -66,6 +66,8 @@ The repository is organized under a strict Software Configuration Management (SC
 * main: Reserved exclusively for fully validated, stable production releases matching live AWS deployments. 
 * development: Used for active iteration, dependency staging, and feature verification testing.
 
-## License: This project is licensed under the MIT License - see the LICENSE file for details.
+## License: 
+This project is licensed under the MIT License - see the LICENSE file for details.
 
-## Author: **larai-w** — MSIT Candidate, University of the People (Department of Computer Science & MSIT)
+## Author: 
+**larai-w** — MSIT Candidate, University of the People (Department of Computer Science & MSIT)
