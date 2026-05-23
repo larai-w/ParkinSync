@@ -16,7 +16,12 @@ To guarantee **100% Data Integrity** for medical informatics, v1.3.0 implements 
 * **Clinical Analytics Ready:** Normalizes disparate streams into a unified 25-column standardized schema, providing a pristine data matrix ready for Pearson's r correlation and lag-variable analysis in **Amazon SageMaker**.
 
 ## 🏗 System Architecture
-The production pipeline operationalizes event-driven and schedule-driven architectures using AWS cloud primitives:
+The system follows a highly resilient, decoupled architecture separating event-driven clinical ingestion from schedule-driven environmental telemetry across three distinct operational layers.
+
+### Overall Block Diagram
+![System Architecture Overview](architecture/system_architecture.svg)
+
+The pipeline operationalizes these steps using robust AWS cloud primitives:
 * **Storage:** Amazon S3 (Ingestion staging bucket and archive)
 * **Compute:** AWS Lambda (Python 3.12, decoupled micro-functions)
 * **Scheduling:** Amazon EventBridge (3-hour automated cron execution)
@@ -24,6 +29,25 @@ The production pipeline operationalizes event-driven and schedule-driven archite
 * **Database & Aggregation:** Google Sheets API v4 (Staging and Master Ledger)
 * **Secrets Governance:** AWS Secrets Manager
 * **Analytics Engine:** Amazon SageMaker (Python Pandas / NumPy correlation suite)
+
+---
+
+### Data Pipeline Execution Flows (Sequence Diagrams)
+
+To maintain low latency and eliminate resource contention, execution lifecycles are entirely split into two independent processing timelines:
+
+#### 1. Flow A: Event-Driven Clinical Data Path
+This lifecycle handles the manual caregiver transcription uploads, triggering immediate external weather enrichment and appending verified lines to the master repository.
+![Clinical Ingestion Sequence](architecture/sequence_clinical_ingestion.svg)
+
+#### 2. Flow B: Schedule-Driven Environmental Telemetry Loop
+This lifecycle runs completely in the background every three hours, pulling indoor metadata into a staging sheet where native formulas compile daily summaries without expanding serverless compute hour costs.
+![Environmental Telemetry Sequence](architecture/sequence_environmental_telemetry.svg)
+
+
+
+
+
 
 ## 📁 Directory Structure
 The repository is organized under a strict Software Configuration Management (SCM) hierarchy to ensure full reproducibility:
