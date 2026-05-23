@@ -26,7 +26,7 @@ The central data repository is divided into a multi-tab structure to maintain co
 ### 👑 "Master Sheet" (The Clinical Ledger)
 * **Purpose:** The definitive clinical timeline matching normalized patient symptoms, medication timings, and environmental summaries.
 * **Human-in-the-Loop (HITL) Validation:** 
-  * Built-in spreadsheet formulas calculate the precise medication delays in Column D automatically.
+  * Built-in spreadsheet formulas calculate the precise medication delays automatically.
   * If anomalous text formatting or clinical boundary violations occur during automated S3 ingestion, conditional formatting will automatically flag the targeted row.
   * **Analyst Action:** Review flagged fields manually, make adjustments based on the primary paper log reference, and clear the flag to authorize the row for machine learning training.
 
