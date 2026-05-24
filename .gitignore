@@ -1,6 +1,7 @@
 # Ignore Python bytecode
-__pycache__/
+pycache/
 *.py[cod]
+.pytest_cache/
 
 # Ignore sensitive credential files (Very Important!)
 *.json
@@ -11,6 +12,6 @@ secret_key.txt
 .vscode/
 .idea/
 
-# Ignore test caches
-.pytest_cache/
-.vscode/
+# Ignore AWS Lambda deployment artifacts (Managed via deploy.sh)
+package/
+*.zip
