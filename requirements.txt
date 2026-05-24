@@ -1,7 +1,22 @@
-# AWS SDK for Python
+# =========================================================
+# AWS Lambda Backend Infrastructure & Integration Dependencies
+# =========================================================
+# AWS SDK for Python (Native in Lambda runtime; included for local /tests)
 boto3
-# HTTP library for Weather API calls
+
+# HTTP library for SwitchBot & Visual Crossing Weather API calls
 requests
-# Google APIs Client Library
+
+# Data manipulation layer bundled into ParkinSync_OCR_Handler
+pandas
+
+# Google APIs Client & OAuth Security Framework for Master Sheets
 google-api-python-client
 google-auth
+
+# =========================================================
+# Analytics Layer (Amazon SageMaker Integration & Modeling)
+# =========================================================
+# Required for Pearson's r correlation & lag-variable calculation in /analytics
+numpy
+scipy

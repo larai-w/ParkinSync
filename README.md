@@ -15,6 +15,48 @@ To guarantee **100% Data Integrity** for medical informatics, v1.3.0 implements 
 * **Enterprise-Grade Security:** Enforces the Principle of Least Privilege (PoLP) via scoped IAM roles and completely eliminates hardcoded credentials by managing all API tokens and Google Service Accounts within **AWS Secrets Manager**.
 * **Clinical Analytics Ready:** Normalizes disparate streams into a unified 25-column standardized schema, providing a pristine data matrix ready for Pearson's r correlation and lag-variable analysis in **Amazon SageMaker**.
 
+
+## 📊 Google Sheets Dependency Configuration
+
+To optimize serverless execution parameters and maintain a zero-cost cloud aggregate architecture, the system offloads telemetry summarization to spreadsheet-native calculation formulas before SageMaker analysis.
+
+To bridge the gap between human readability (HITL) and machine learning readiness, the repository enforces dual-layer formula processing:
+
+### 🤖 1. Analytics Layer (Structured for Python Pandas Parsing)
+Environmental metrics are split into three independent numeric columns to preserve strict data atomicity:
+
+*   **Daily Average Temperature Column:**
+```excel
+    =IFERROR(LET(raw_val, B2, clean_date_str, IFERROR(REGEXEXTRACT(raw_val, "\d{4}/\d{1,2}/\d{1,2}"), YEAR(TODAY()) & REGEXEXTRACT(raw_val, "/\d{1,2}/\d{1,2}")), target_date, DATEVALUE(clean_date_str), VLOOKUP(target_date, SwitchBot_hist_daily!A:D, 2, FALSE)), "")
+ ```
+*   **Daily Minimum Temperature Column:**
+```excel
+    =IFERROR(LET(raw_val, B2, clean_date_str, IFERROR(REGEXEXTRACT(raw_val, "\d{4}/\d{1,2}/\d{1,2}"), YEAR(TODAY()) & REGEXEXTRACT(raw_val, "/\d{1,2}/\d{1,2}")), target_date, DATEVALUE(clean_date_str), VLOOKUP(target_date, SwitchBot_hist_daily!A:D, 3, FALSE)), "")
+ ```
+*   **Daily Maximum Temperature Column:**
+```excel
+    =IFERROR(LET(raw_val, B2, clean_date_str, IFERROR(REGEXEXTRACT(raw_val, "\d{4}/\d{1,2}/\d{1,2}"), YEAR(TODAY()) & REGEXEXTRACT(raw_val, "/\d{1,2}/\d{1,2}")), target_date, DATEVALUE(clean_date_str), VLOOKUP(target_date, SwitchBot_hist_daily!A:D, 4, FALSE)), "")
+ ```
+
+
+### 🏠 2. Human-Centric UI Layer (Structured for Caregiver Dashboard)
+Aggregates telemetry records into a single formatted string to provide immediate visibility for the home-care verification cycle:
+
+*   **Consolidated Climate Dashboard Formula:**
+```excel
+    =IFERROR(
+      LET(
+        raw_val, B2,
+        clean_date_str, IFERROR(REGEXEXTRACT(raw_val, "\d{4}/\d{1,2}/\d{1,2}"), YEAR(TODAY()) & REGEXEXTRACT(raw_val, "/\d{1,2}/\d{1,2}")),
+        target_date, DATEVALUE(clean_date_str),
+        avg, VLOOKUP(target_date, SwitchBot_hist_daily!A:D, 2, FALSE),
+        min, VLOOKUP(target_date, SwitchBot_hist_daily!A:D, 3, FALSE),
+        max, VLOOKUP(target_date, SwitchBot_hist_daily!A:D, 4, FALSE),
+        "🏠 Avg:" & ROUND(avg, 1) & " / Min:" & ROUND(min, 1) & " / Max:" & ROUND(max, 1)
+      ),
+      "No Data"
+ ```
+
 ## 🏗 System Architecture
 The system follows a highly resilient, decoupled architecture separating event-driven clinical ingestion from schedule-driven environmental telemetry across three distinct operational layers.
 
