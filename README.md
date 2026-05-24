@@ -110,7 +110,7 @@ The repository is organized under a strict Software Configuration Management (SC
 ### Installation & Deployment
 1. Clone the master repository:
 ```bash
-   git clone [https://github.com/larai-w/ParkinSync.git](https://github.com/larai-w/ParkinSync.git)
+   git clone https://github.com/larai-w/ParkinSync.git
 ```
 
 2. Navigate to the active staging branch:
