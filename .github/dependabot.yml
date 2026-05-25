@@ -1,0 +1,10 @@
+# .github/dependabot.yml
+version: 2
+updates:
+  # Target the Python (pip) package management environment
+  - package-ecosystem: "pip"
+    # Location of the requirements.txt file (root directory)
+    directory: "/"
+    # Frequency of manifest checks for dependency updates
+    schedule:
+      interval: "weekly"
