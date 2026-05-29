@@ -46,7 +46,7 @@ def get_historical_weather(date_str, api_key):
 
 def lambda_handler(event, context):
     """
-    v1.4.2 - Final Production Code.
+    v1.3.0 - Final Production Code.
     Features: Multi-row extraction, Historical Weather Sync, 25-column mapping.
     """
     textract = boto3.client('textract')
