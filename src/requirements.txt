@@ -1,0 +1,5 @@
+# Runtime dependencies bundled by `sam build` (boto3 is provided by the Lambda runtime)
+requests>=2.32
+google-api-python-client>=2.190
+google-auth>=2.40
+google-auth-httplib2>=0.2

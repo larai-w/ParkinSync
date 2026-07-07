@@ -1,0 +1,78 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  ParkinSync - Caregiver log digitization pipeline.
+  S3 upload -> Lambda -> Textract OCR -> weather enrichment -> Google Sheets.
+
+Parameters:
+  UploadBucketName:
+    Type: String
+    Default: parkinsync-uploads
+    Description: S3 bucket that receives caregiver log images/PDFs
+  SpreadsheetId:
+    Type: String
+    Default: 1aHdVYePaTQQ59feBWtPXBYPpsaMBO2KMcuXhwV3AFBE
+    Description: Destination Google Spreadsheet ID
+  SecretId:
+    Type: String
+    Default: ParkinSync/Production/GoogleCredentials
+    Description: Secrets Manager secret holding Google credentials and API keys
+  WeatherLat:
+    Type: String
+    Default: "35.38"
+  WeatherLon:
+    Type: String
+    Default: "134.67"
+
+Resources:
+  UploadBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Ref UploadBucketName
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+
+  ProcessorFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: ParkinSyncProcessor
+      CodeUri: src/
+      Handler: lambda_function.lambda_handler
+      Runtime: python3.12
+      Timeout: 120
+      MemorySize: 512
+      Environment:
+        Variables:
+          SPREADSHEET_ID: !Ref SpreadsheetId
+          SECRET_ID: !Ref SecretId
+          WEATHER_LAT: !Ref WeatherLat
+          WEATHER_LON: !Ref WeatherLon
+      Policies:
+        - S3ReadPolicy:
+            BucketName: !Ref UploadBucketName
+        - Statement:
+            - Effect: Allow
+              Action: textract:AnalyzeDocument
+              Resource: '*'
+            - Effect: Allow
+              Action: secretsmanager:GetSecretValue
+              Resource: !Sub arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:${SecretId}*
+      Events:
+        LogUpload:
+          Type: S3
+          Properties:
+            Bucket: !Ref UploadBucket
+            Events: s3:ObjectCreated:*
+
+Outputs:
+  UploadBucketArn:
+    Value: !GetAtt UploadBucket.Arn
+  ProcessorFunctionArn:
+    Value: !GetAtt ProcessorFunction.Arn
