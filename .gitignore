@@ -16,3 +16,7 @@ build/
 *.pem
 *.json.key
 samconfig.toml
+
+# Other local directories not part of ParkinSync source
+Capstone/
+README 2.md
