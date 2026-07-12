@@ -23,6 +23,17 @@ Parameters:
   WeatherLon:
     Type: String
     Default: "134.67"
+  SnsTopicArn:
+    Type: String
+    Default: ""
+    Description: Optional SNS topic ARN for error/review notifications (leave blank to disable)
+  LogMonth:
+    Type: String
+    Default: ""
+    Description: Optional override for month-less date cells, e.g. '2026-04'. Normally inferred from filename.
+
+Conditions:
+  HasSnsTopic: !Not [!Equals [!Ref SnsTopicArn, ""]]
 
 Resources:
   UploadBucket:
@@ -54,6 +65,8 @@ Resources:
           SECRET_ID: !Ref SecretId
           WEATHER_LAT: !Ref WeatherLat
           WEATHER_LON: !Ref WeatherLon
+          SNS_TOPIC_ARN: !Ref SnsTopicArn
+          LOG_MONTH: !Ref LogMonth
       Policies:
         - S3ReadPolicy:
             BucketName: !Ref UploadBucketName
@@ -64,6 +77,17 @@ Resources:
             - Effect: Allow
               Action: secretsmanager:GetSecretValue
               Resource: !Sub arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:${SecretId}*
+            # Idempotency: read/write object tags; quarantine: copy within bucket
+            - Effect: Allow
+              Action:
+                - s3:GetObjectTagging
+                - s3:PutObjectTagging
+                - s3:CopyObject
+              Resource: !Sub arn:aws:s3:::${UploadBucketName}/*
+            # SNS notifications for quarantine (no-op if SnsTopicArn is empty)
+            - Effect: Allow
+              Action: sns:Publish
+              Resource: !If [HasSnsTopic, !Ref SnsTopicArn, !Sub 'arn:aws:sns:${AWS::Region}:${AWS::AccountId}:__none__']
       Events:
         LogUpload:
           Type: S3
