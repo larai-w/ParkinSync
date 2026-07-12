@@ -10,8 +10,10 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 
-MODE="${1:-sam}"
-FUNCTION_NAME="${FUNCTION_NAME:-ParkinSyncProcessor}"
+MODE="${1:-zip}"
+# Production function name in us-east-1 (dependencies provided via Lambda Layers)
+FUNCTION_NAME="${FUNCTION_NAME:-ParkinSync_OCR_Handler}"
+AWS_REGION="${AWS_REGION:-us-east-1}"
 STACK_NAME="${STACK_NAME:-parkinsync}"
 
 case "$MODE" in
@@ -21,15 +23,18 @@ case "$MODE" in
     sam deploy --stack-name "$STACK_NAME" --capabilities CAPABILITY_IAM --resolve-s3 --no-confirm-changeset
     ;;
   zip)
-    BUILD_DIR=build
-    ZIP_FILE=parkinsync_lambda.zip
-    rm -rf "$BUILD_DIR" "$ZIP_FILE"
-    mkdir -p "$BUILD_DIR"
-    pip install --quiet --target "$BUILD_DIR" -r src/requirements.txt
-    cp src/lambda_function.py "$BUILD_DIR/"
-    (cd "$BUILD_DIR" && zip -qr "../$ZIP_FILE" .)
-    aws lambda update-function-code --function-name "$FUNCTION_NAME" --zip-file "fileb://$ZIP_FILE"
-    echo "[SUCCESS] Updated function code: $FUNCTION_NAME"
+    # Dependencies are provided by Lambda Layers — zip only the function code.
+    ZIP_FILE=/tmp/parkinsync_lambda.zip
+    rm -f "$ZIP_FILE"
+    (cd src && zip "$ZIP_FILE" lambda_function.py)
+    aws lambda update-function-code \
+      --function-name "$FUNCTION_NAME" \
+      --zip-file "fileb://$ZIP_FILE" \
+      --region "$AWS_REGION"
+    aws lambda wait function-updated \
+      --function-name "$FUNCTION_NAME" \
+      --region "$AWS_REGION"
+    echo "[SUCCESS] Deployed $FUNCTION_NAME to $AWS_REGION"
     ;;
   *)
     echo "Usage: ./deploy.sh [sam|zip]"; exit 1
