@@ -125,7 +125,7 @@ analytics/
 architecture/                  # SVG system and sequence diagrams
 design/                        # Paper log template, master schema definition
 docs/                          # Public user guide only
-content/blog-drafts/           # Anonymized publication drafts
+content/blog-drafts/           # Anonymized GitHub case-study draft
 scripts/                       # CI and repository hygiene checks
 deploy.sh                      # Lambda packaging and deployment script
 ```
