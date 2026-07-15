@@ -97,7 +97,7 @@ The repository is organized under a strict Software Configuration Management (SC
 * `/architecture` : High-resolution system block diagrams and sequence chart maps.
 * `/design` : Bounded analog caregiver log templates and 25-column master schema data definitions.
 * `/docs` : System documentation, deployment guides, and project compliance parameters.
-* `/src` : Production Python source code for AWS Lambda functions (`lambda_function.py`, `indoor_temp_logger.py`).
+* `/src` : Production Python source code for AWS Lambda functions (`ParkinSync_OCR_Handler.py`, `indoor_temp_logger.py`). The deployment script packages each function as `lambda_function.py` to match the live Lambda handler settings.
 * `/tests` : Automated unit testing and integration suite parameters.
 
 ## 🏁 Getting Started
