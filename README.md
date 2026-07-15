@@ -124,7 +124,9 @@ analytics/
   sample_data_v1.3.csv         # Anonymized sample dataset (25 columns)
 architecture/                  # SVG system and sequence diagrams
 design/                        # Paper log template, master schema definition
-docs/                          # User guide, v1.3.0 final report
+docs/                          # Public user guide only
+content/blog-drafts/           # Anonymized publication drafts
+scripts/                       # CI and repository hygiene checks
 deploy.sh                      # Lambda packaging and deployment script
 ```
 
@@ -135,6 +137,7 @@ deploy.sh                      # Lambda packaging and deployment script
 - All API credentials (Google Service Account JSON, SwitchBot key, Visual Crossing key) are stored exclusively in AWS Secrets Manager — no hardcoded values in source.
 - Personally identifiable information is omitted at the ingestion boundary.
 - IAM roles follow the principle of least privilege, scoped to required S3 buckets and Sheets targets.
+- Capstone source documents and non-anonymized PDFs are intentionally excluded from the public repository. CI blocks known report filenames, office-source documents, and common secret patterns.
 
 ---
 
