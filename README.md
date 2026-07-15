@@ -1,139 +1,152 @@
-# ParkinSync v1.3.0: Hybrid Serverless Ingestion & Clinical Analytics Pipeline
+# ParkinSync
 
-## 📝 Project Overview
-**ParkinSync** is a clinical-grade, serverless data engineering pipeline designed to bridge the gap between traditional paper-based clinical logging and advanced cloud analytics for Parkinson's Disease care. Optimized for environments facing physical and digital friction (such as rural care settings), the system synchronizes qualitative caregiver observations with continuous, high-fidelity environmental telemetry. 
+**A serverless data pipeline that bridges paper-based caregiver logs with cloud analytics for Parkinson's Disease care.**
 
-To guarantee **100% Data Integrity** for medical informatics, v1.3.0 implements a robust **Human-in-the-Loop (HITL)** architecture, bypassing the 57% accuracy limitations of autonomous handwritten OCR by enforcing deterministic manual pre-sanitization prior to cloud ingestion.
+Caregiver observations written on structured paper forms are manually transcribed, then ingested into AWS, enriched with weather and indoor temperature telemetry, and normalized into a 25-column schema for correlation analysis in Amazon SageMaker.
 
-## 🚀 Key Features
-
-* **Human-in-the-Loop (HITL) Integrity:** Leverages an optimized analog paper interface for elderly caregivers, transitioning into a human-verified data entry step to eliminate the "Garbage In, Garbage Out" (GIGO) phenomenon before AWS ingestion.
-* **Decoupled Dual-Lambda Core:** Splitting backend orchestration into two dedicated, isolated AWS Lambda functions (`ParkinSync_OCR_Handler` and `ParkinSync_IndoorTemp_Logger`) to ensure operational continuity and zero resource contention.
-* **Schedule-Driven IoT Polling:** Employs an Amazon EventBridge cron routine to query the SwitchBot Open API every three hours, securing continuous indoor climate logs separate from active user uploads.
-* **Hyper-Local Meteorological Enrichment:** Queries the Visual Crossing Weather API dynamically based on the historical event date written in the log, tracking environmental triggers (e.g., barometric pressure drops) that influence motor fluctuations.
-* **Spreadsheet-Native Aggregation Layer:** Offloads heavy mathematical metrics (Daily Mean, Minimum, and Maximum environmental statistics) to a multi-tab Google Sheets calculation layout, significantly reducing serverless compute runtime and cloud operational costs.
-* **Enterprise-Grade Security:** Enforces the Principle of Least Privilege (PoLP) via scoped IAM roles and completely eliminates hardcoded credentials by managing all API tokens and Google Service Accounts within **AWS Secrets Manager**.
-* **Clinical Analytics Ready:** Normalizes disparate streams into a unified 25-column standardized schema, providing a pristine data matrix ready for Pearson's r correlation and lag-variable analysis in **Amazon SageMaker**.
-
-
-## 📊 Google Sheets Dependency Configuration
-
-To optimize serverless execution parameters and maintain a zero-cost cloud aggregate architecture, the system offloads telemetry summarization to spreadsheet-native calculation formulas before SageMaker analysis.
-
-To bridge the gap between human readability (HITL) and machine learning readiness, the repository enforces dual-layer formula processing:
-
-### 🤖 1. Analytics Layer (Structured for Python Pandas Parsing)
-Environmental metrics are split into three independent numeric columns to preserve strict data atomicity:
-
-*   **Daily Average Temperature Column:**
-```excel
-    =IFERROR(LET(raw_val, B2, clean_date_str, IFERROR(REGEXEXTRACT(raw_val, "\d{4}/\d{1,2}/\d{1,2}"), YEAR(TODAY()) & REGEXEXTRACT(raw_val, "/\d{1,2}/\d{1,2}")), target_date, DATEVALUE(clean_date_str), VLOOKUP(target_date, SwitchBot_hist_daily!A:D, 2, FALSE)), "")
- ```
-*   **Daily Minimum Temperature Column:**
-```excel
-    =IFERROR(LET(raw_val, B2, clean_date_str, IFERROR(REGEXEXTRACT(raw_val, "\d{4}/\d{1,2}/\d{1,2}"), YEAR(TODAY()) & REGEXEXTRACT(raw_val, "/\d{1,2}/\d{1,2}")), target_date, DATEVALUE(clean_date_str), VLOOKUP(target_date, SwitchBot_hist_daily!A:D, 3, FALSE)), "")
- ```
-*   **Daily Maximum Temperature Column:**
-```excel
-    =IFERROR(LET(raw_val, B2, clean_date_str, IFERROR(REGEXEXTRACT(raw_val, "\d{4}/\d{1,2}/\d{1,2}"), YEAR(TODAY()) & REGEXEXTRACT(raw_val, "/\d{1,2}/\d{1,2}")), target_date, DATEVALUE(clean_date_str), VLOOKUP(target_date, SwitchBot_hist_daily!A:D, 4, FALSE)), "")
- ```
-
-
-### 🏠 2. Human-Centric UI Layer (Structured for Caregiver Dashboard)
-Aggregates telemetry records into a single formatted string to provide immediate visibility for the home-care verification cycle:
-
-*   **Consolidated Climate Dashboard Formula:**
-```excel
-    =IFERROR(
-      LET(
-        raw_val, B2,
-        clean_date_str, IFERROR(REGEXEXTRACT(raw_val, "\d{4}/\d{1,2}/\d{1,2}"), YEAR(TODAY()) & REGEXEXTRACT(raw_val, "/\d{1,2}/\d{1,2}")),
-        target_date, DATEVALUE(clean_date_str),
-        avg, VLOOKUP(target_date, SwitchBot_hist_daily!A:D, 2, FALSE),
-        min, VLOOKUP(target_date, SwitchBot_hist_daily!A:D, 3, FALSE),
-        max, VLOOKUP(target_date, SwitchBot_hist_daily!A:D, 4, FALSE),
-        "🏠 Avg:" & ROUND(avg, 1) & " / Min:" & ROUND(min, 1) & " / Max:" & ROUND(max, 1)
-      ),
-      "No Data"
- ```
-
-## 🏗 System Architecture
-The system follows a highly resilient, decoupled architecture separating event-driven clinical ingestion from schedule-driven environmental telemetry across three distinct operational layers.
-
-### Overall Block Diagram
-![System Architecture Overview](architecture/system_architecture.svg)
-
-The pipeline operationalizes these steps using robust AWS cloud primitives:
-* **Storage:** Amazon S3 (Ingestion staging bucket and archive)
-* **Compute:** AWS Lambda (Python 3.12, decoupled micro-functions)
-* **Scheduling:** Amazon EventBridge (3-hour automated cron execution)
-* **OCR / Audit:** Amazon Textract (Form-based key-value parsing for system validation)
-* **Database & Aggregation:** Google Sheets API v4 (Staging and Master Ledger)
-* **Secrets Governance:** AWS Secrets Manager
-* **Analytics Engine:** Amazon SageMaker (Python Pandas / NumPy correlation suite)
+**Status:** In development (v1.3.0)
 
 ---
 
-### Data Pipeline Execution Flows (Sequence Diagrams)
+## Why this exists
 
-To maintain low latency and eliminate resource contention, execution lifecycles are entirely split into two independent processing timelines:
+Motor symptoms in Parkinson's Disease are often reported to vary with environmental factors such as temperature and barometric pressure. Everyday care tools rarely capture this context alongside caregiver observations. ParkinSync collects both streams, synchronizes them by date, and produces a tidy dataset for exploratory data analysis.
 
-#### 1. Flow A: Event-Driven Clinical Data Path
-This lifecycle handles the manual caregiver transcription uploads, triggering immediate external weather enrichment and appending verified lines to the master repository.
-![Clinical Ingestion Sequence](architecture/sequence_clinical_ingestion.svg)
+---
 
-#### 2. Flow B: Schedule-Driven Environmental Telemetry Loop
-This lifecycle runs completely in the background every three hours, pulling indoor metadata into a staging sheet where native formulas compile daily summaries without expanding serverless compute hour costs.
-![Environmental Telemetry Sequence](architecture/sequence_environmental_telemetry.svg)
+## Architecture
 
+```
+Caregiver paper log
+  │
+  └─ [manual scan / upload to S3]
+         │
+         ▼
+  AWS S3 (ingestion staging bucket)
+         │
+         ├─ S3 event trigger
+         │      ▼
+         │  Lambda: ParkinSync_OCR_Handler  (Python 3.12)
+         │    ├─ Amazon Textract  (form key-value extraction)
+         │    ├─ Visual Crossing Weather API  (historical weather by log date)
+         │    └─ Google Sheets API v4  (append verified row to master ledger)
+         │
+         └─ [independent, schedule-driven]
+                ▼
+         Amazon EventBridge  (cron: every 3 hours)
+                ▼
+         Lambda: ParkinSync_IndoorTemp_Logger  (Python 3.12)
+           └─ SwitchBot Open API  (indoor temperature/humidity)
+               └─ Google Sheets API v4  (staging tab)
+                      │
+                      └─ Native spreadsheet formulas compute daily
+                         avg/min/max  (no additional serverless cost)
 
+Master ledger (Google Sheets, 25-column schema)
+  └─ Amazon SageMaker  (Pandas/NumPy Pearson r correlation, lag analysis)
 
-
-
-
-## 📁 Directory Structure
-The repository is organized under a strict Software Configuration Management (SCM) hierarchy to ensure full reproducibility:
-* `/analytics` : Contains v1.3.0 sample datasets and analytical scripts optimized for SageMaker ingestion.
-* `/architecture` : High-resolution system block diagrams and sequence chart maps.
-* `/design` : Bounded analog caregiver log templates and 25-column master schema data definitions.
-* `/docs` : System documentation, deployment guides, and project compliance parameters.
-* `/src` : Production Python source code for AWS Lambda functions (`ParkinSync_OCR_Handler.py`, `indoor_temp_logger.py`). The deployment script packages each function as `lambda_function.py` to match the live Lambda handler settings.
-* `/tests` : Automated unit testing and integration suite parameters.
-
-## 🏁 Getting Started
-
-### Prerequisites
-* Python 3.12+
-* AWS CLI configured with administrative/appropriate IAM permissions.
-* Google Cloud Platform (GCP) Service Account credentials JSON.
-
-### Installation & Deployment
-1. Clone the master repository:
-```bash
-   git clone https://github.com/larai-w/ParkinSync.git
+Secrets: AWS Secrets Manager (Google SA JSON, SwitchBot key, Weather API key)
+IaC: deploy.sh (bash) — packages Lambda zips and calls aws lambda update-function-code
 ```
 
-2. Navigate to the active staging branch:
+The OCR step is Human-in-the-Loop: Textract validates form structure but does not auto-fill fields. A human operator verifies the transcription before cloud ingestion, reducing garbage-in data.
 
-```bash
-   git checkout development
+---
+
+## Tech Stack
+
+| Layer | Choice |
+|---|---|
+| Compute | AWS Lambda (Python 3.12), 2 decoupled functions |
+| Scheduling | Amazon EventBridge (3-hour cron) |
+| OCR / Audit | Amazon Textract |
+| Secrets | AWS Secrets Manager |
+| Aggregation | Google Sheets API v4 |
+| IoT polling | SwitchBot Open API |
+| Weather enrichment | Visual Crossing Weather API |
+| Analytics | Amazon SageMaker, Python Pandas / NumPy / SciPy |
+| Deploy | `deploy.sh` (bash, `aws lambda update-function-code`) |
+
+---
+
+## Testing
+
+```
+tests/test_lambda_function.py  — 5 Python unittest cases
+  TestHistoricalWeather (2 cases):
+    - happy path: returns (summary, raw_data) tuple
+    - graceful degradation on network failure
+  TestWeatherEmoji (2 cases):
+    - condition-to-emoji mapping
+    - unknown condition fallback
+  TestLambdaHandler (1 case):
+    - returns HTTP 404 when Textract finds no table in document
+
+analytics/pd_correlation_analysis.py  — schema audit script
+    (verifies 25-column alignment, computes thermal gradient,
+     weekday/weekend split, symptom-temperature Pearson r)
 ```
 
-3. Deployment commands for packaging zip archives and updating live code arrays can be reviewed in detail within Appendix A of the system specification report.
+Run tests: `python -m pytest tests/` (requires `pip install -r requirements.txt` and `PYTHONPATH=src`)
 
-## 🔒 Security, Ethics & Privacy
-* Principle of Least Privilege (PoLP): Execution roles are explicitly constrained to required S3 buckets and Sheets targets.
+---
 
-* Data Anonymization: Personally Identifiable Information (PII) is omitted at the ingestion perimeter to maintain strict patient/caregiver clinical privacy.
+## Local Development
 
-* Zero-Hardcoding Guardrails: All critical service keys (Google Cloud JSON credentials, SwitchBot developer keys, and Visual Crossing API tokens) are strictly stored and rotated inside AWS Secrets Manager.
+```bash
+# Python environment
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
 
-## 🌿 Branching Strategy
-* main: Reserved exclusively for fully validated, stable production releases matching live AWS deployments. 
-* development: Used for active iteration, dependency staging, and feature verification testing.
+# Unit tests
+PYTHONPATH=src python -m pytest tests/ -v
 
-## License: 
-This project is licensed under the MIT License - see the LICENSE file for details.
+# Schema audit (uses analytics/sample_data_v1.3.csv)
+python analytics/pd_correlation_analysis.py
 
-## Author: 
-**larai-w** — MSIT Candidate, University of the People (Department of Computer Science & MSIT)
+# Deploy both Lambda functions (requires AWS CLI + IAM permissions)
+AWS_REGION=us-east-1 bash deploy.sh
+```
+
+---
+
+## Repository Layout
+
+```
+src/
+  ParkinSync_OCR_Handler.py    # Event-driven Lambda: OCR + weather enrichment
+  indoor_temp_logger.py        # Schedule-driven Lambda: SwitchBot telemetry
+tests/
+  test_lambda_function.py      # unittest suite
+analytics/
+  pd_correlation_analysis.py   # EDA / schema audit script
+  sample_data_v1.3.csv         # Anonymized sample dataset (25 columns)
+architecture/                  # SVG system and sequence diagrams
+design/                        # Paper log template, master schema definition
+docs/                          # User guide, v1.3.0 final report
+deploy.sh                      # Lambda packaging and deployment script
+```
+
+---
+
+## Security & Privacy
+
+- All API credentials (Google Service Account JSON, SwitchBot key, Visual Crossing key) are stored exclusively in AWS Secrets Manager — no hardcoded values in source.
+- Personally identifiable information is omitted at the ingestion boundary.
+- IAM roles follow the principle of least privilege, scoped to required S3 buckets and Sheets targets.
+
+---
+
+## Branching
+
+- `main`: stable, matches live Lambda deployments
+- `development`: active iteration
+
+---
+
+## License
+
+MIT — see [LICENSE](LICENSE)
+
+Part of the [VEAI LAB.](https://veai.jp) ecosystem — [ParkinSync product page](https://veai.jp/apps/parkinsync/)
