@@ -7,7 +7,7 @@ import requests
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 
-# Configuration for AWS and localized weather (Yabu, Hyogo)
+# Configuration for AWS and localized weather enrichment.
 SECRET_ID = "ParkinSync/Production/GoogleCredentials"
 REGION_NAME = "us-east-1"
 LAT = "35.38"
