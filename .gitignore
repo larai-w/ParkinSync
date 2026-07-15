@@ -15,3 +15,14 @@ secret_key.txt
 # Ignore AWS Lambda deployment artifacts (Managed via deploy.sh)
 package/
 *.zip
+
+# Ignore Python virtual environments
+.venv/
+venv/
+
+# Ignore macOS metadata
+.DS_Store
+
+# Ignore local scratch files not part of the project
+Capstone/
+README 2.md
