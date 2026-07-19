@@ -1,0 +1,73 @@
+name: User story
+description: Define a user or operator outcome with acceptance evidence.
+title: "story: "
+labels:
+  - type:story
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Do not include personal health information, credentials, raw care records, or unsupported medical claims.
+  - type: dropdown
+    id: persona
+    attributes:
+      label: Persona
+      options:
+        - Family caregiver
+        - Data reviewer
+        - Product operator
+        - Researcher or analyst
+        - Developer or maintainer
+    validations:
+      required: true
+  - type: textarea
+    id: story
+    attributes:
+      label: User story
+      placeholder: As a ..., I want ..., so that ...
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Problem and evidence
+      description: Describe the observed workflow, failure, research question, or feedback.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      placeholder: |
+        - [ ] Given ..., when ..., then ...
+        - [ ] Missing or uncertain data remains explicit.
+        - [ ] Validation evidence is retained.
+    validations:
+      required: true
+  - type: textarea
+    id: validation
+    attributes:
+      label: Validation plan
+      description: Name the automated, fixture, operator, or production-safe check.
+    validations:
+      required: true
+  - type: textarea
+    id: risks
+    attributes:
+      label: Data, privacy, and safety risks
+      description: Cover data lineage, failure handling, publication boundaries, and claims.
+  - type: textarea
+    id: out_of_scope
+    attributes:
+      label: Out of scope
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      options:
+        - P0 - Safety or release blocker
+        - P1 - Core outcome
+        - P2 - Valuable next
+        - P3 - Explore later
+    validations:
+      required: true

@@ -1,0 +1,43 @@
+name: Delivery, risk, or research task
+description: Record technical delivery, architecture decisions, risks, or experiments.
+title: "task: "
+body:
+  - type: dropdown
+    id: type
+    attributes:
+      label: Work type
+      options:
+        - Delivery task
+        - Architecture decision
+        - Data quality risk
+        - Operational risk
+        - Research experiment
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Context and intended outcome
+    validations:
+      required: true
+  - type: textarea
+    id: done
+    attributes:
+      label: Definition of done
+      placeholder: |
+        - [ ] Implementation or decision is reviewable.
+        - [ ] Tests or evidence are attached.
+        - [ ] Recovery and data handling are documented.
+    validations:
+      required: true
+  - type: textarea
+    id: dependencies
+    attributes:
+      label: Dependencies and constraints
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence plan
+      description: State what will prove completion without publishing sensitive data.
+    validations:
+      required: true
