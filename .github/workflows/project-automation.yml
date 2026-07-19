@@ -1,0 +1,18 @@
+name: Add work to ParkinSync project
+
+on:
+  issues:
+    types: [opened, reopened, transferred]
+  pull_request_target:
+    types: [opened, reopened]
+
+jobs:
+  add-to-project:
+    if: ${{ vars.PARKINSYNC_PROJECT_URL != '' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Add issue or pull request to project
+        uses: actions/add-to-project@v2
+        with:
+          project-url: ${{ vars.PARKINSYNC_PROJECT_URL }}
+          github-token: ${{ secrets.PROJECTS_TOKEN }}
