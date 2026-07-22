@@ -14,6 +14,26 @@ Motor symptoms in Parkinson's Disease are often reported to vary with environmen
 
 ---
 
+## Product Management
+
+ParkinSync doubles as a working **product-management portfolio** — a research-driven data product built
+solo and AI-assisted, delivered with an evidence-first, boundary-aware discipline. What it demonstrates:
+
+- **Evidence-based delivery** — the goal is a reviewable, analysis-ready dataset, and the project is
+  explicit about what it does *not* claim: it is exploratory, not diagnostic, on limited anonymized data.
+- **Stakeholder management** — it preserves the caregiver's existing paper workflow (no new app to adopt)
+  while producing structured data for whoever reviews it later; a human stays at the boundary where raw
+  observations become records.
+- **Technical product management** — a serverless pipeline owned end to end: multi-stream ingestion
+  (paper logs + weather + indoor telemetry), a fixed schema, and a deliberate choice to keep OCR as
+  supporting infrastructure rather than the final authority (see **Architecture** below).
+- **Agile in practice** — a live **[GitHub Project — ParkinSync Delivery](https://github.com/users/larai-w/projects/4)**
+  and **[issues](https://github.com/larai-w/ParkinSync/issues)** tracking experiments, decisions and tasks.
+
+Related engineering write-ups are on the [VEAI LAB blog](https://veai.jp/blog/).
+
+---
+
 ## Architecture
 
 ```
