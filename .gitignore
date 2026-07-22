@@ -26,3 +26,12 @@ venv/
 # Ignore local scratch files not part of the project
 Capstone/
 README 2.md
+local-drafts/
+analytics/features_*.csv
+analytics/care_daily_summary.csv
+analytics/weekly_insights.md
+analytics/exports/
+analytics/features_integrated.csv
+
+# blog drafts kept private (see veai-jp-web/docs-private/drafts)
+content/blog-drafts/
