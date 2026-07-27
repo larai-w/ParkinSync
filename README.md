@@ -107,7 +107,7 @@ analytics/pd_correlation_analysis.py  — schema audit script
      weekday/weekend split, symptom-temperature Pearson r)
 ```
 
-Run tests: `python -m pytest tests/` (requires `pip install -r requirements.txt` and `PYTHONPATH=src`)
+Run tests: `PYTHONPATH=src python -m unittest discover -s tests -v` (requires `pip install -r requirements.txt`)
 
 ---
 
@@ -120,7 +120,7 @@ source .venv/bin/activate
 pip install -r requirements.txt
 
 # Unit tests
-PYTHONPATH=src python -m pytest tests/ -v
+PYTHONPATH=src python -m unittest discover -s tests -v
 
 # Schema audit (uses analytics/sample_data_v1.3.csv)
 python analytics/pd_correlation_analysis.py
