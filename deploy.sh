@@ -1,6 +1,21 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# ⚠️ HEALTH-SAFETY GUARDRAIL (Issue #26) — do not remove without reading the doc.
+# As of 2026-07-28, the deployed OCR Lambda is NOT repository `main`: it is
+# byte-identical to `feature/fable5-mvp-hardening` and has hardening (idempotent S3
+# processing, OCR failure quarantine/notification, filename date recovery, broader
+# date parsing) that `main` lacks. Running this script from `main` as-is would
+# OVERWRITE the hardened production code with the simpler `main` code — a regression.
+# Reconcile `main` with production first (port the hardened capabilities via PRs),
+# then remove this guardrail. Details + rollback evidence:
+#   docs/PRODUCTION_LAMBDA_RECONCILIATION.md
+if [ "${ALLOW_UNRECONCILED_DEPLOY:-}" != "1" ]; then
+  echo "Refusing to deploy: main is not reconciled with production (Issue #26)." >&2
+  echo "See docs/PRODUCTION_LAMBDA_RECONCILIATION.md. Override with ALLOW_UNRECONCILED_DEPLOY=1." >&2
+  exit 1
+fi
+
 AWS_REGION="${AWS_REGION:-us-east-1}"
 PYTHON_BIN="${PYTHON_BIN:-python3}"
 
