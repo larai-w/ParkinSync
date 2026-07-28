@@ -1,5 +1,6 @@
 import os
 import json
+import re
 import urllib.parse
 import datetime
 import boto3
@@ -8,10 +9,29 @@ from google.oauth2 import service_account
 from googleapiclient.discovery import build
 
 # Configuration for AWS and localized weather enrichment.
-SECRET_ID = "ParkinSync/Production/GoogleCredentials"
-REGION_NAME = "us-east-1"
-LAT = "35.38"
-LON = "134.67"
+# Overridable via Lambda environment variables; defaults keep local/dev behavior.
+SECRET_ID = os.environ.get("SECRET_ID", "ParkinSync/Production/GoogleCredentials")
+REGION_NAME = os.environ.get("SECRETS_REGION", "us-east-1")
+LAT = os.environ.get("WEATHER_LAT", "35.38")
+LON = os.environ.get("WEATHER_LON", "134.67")
+
+JST = datetime.timezone(datetime.timedelta(hours=9))
+
+# Month-name lookup for filename inference and OCR date parsing.
+MONTH_MAP = {
+    "january": "01", "february": "02", "march": "03", "april": "04",
+    "may": "05", "june": "06", "july": "07", "august": "08",
+    "september": "09", "october": "10", "november": "11", "december": "12",
+    "jan": "01", "feb": "02", "mar": "03", "apr": "04", "jun": "06",
+    "jul": "07", "aug": "08", "sep": "09", "sept": "09", "oct": "10",
+    "nov": "11", "dec": "12",
+}
+
+# S3 object tag used to make processing idempotent, and the quarantine prefix.
+_PROCESSED_TAG = "ParkinSync-Status"
+_PROCESSED_VALUE = "processed"
+_REVIEW_PREFIX = "review/"
+
 
 def get_weather_emoji(condition_text):
     """Map weather conditions to specific emojis for dashboard clarity."""
@@ -23,12 +43,98 @@ def get_weather_emoji(condition_text):
     if "partly" in cond: return "⛅"
     return "🌡️"
 
-def get_historical_weather(date_str, api_key):
-    """Fetch historical weather data for the specific date listed on the paper."""
+
+def _log_year():
+    """Year used when the OCR date has no year. Overridable via LOG_YEAR env var."""
+    return os.environ.get("LOG_YEAR", str(datetime.datetime.now(JST).year))
+
+
+def _infer_month_from_key(document_key):
+    """
+    Extract a 'YYYY-MM' month hint from the S3 object key (filename), used to
+    resolve day-only OCR cells such as '20th'. Supports patterns like
+    '2026-04_log.jpg', 'log_2026_04.pdf', 'april_2026_log.jpg'. Returns None when
+    nothing usable is found. `LOG_MONTH` env var takes precedence when set.
+    """
+    log_month = os.environ.get("LOG_MONTH", "")
+    if log_month:
+        m = re.match(r'(\d{4})-(\d{2})', log_month)
+        if m:
+            return log_month[:7]
+
+    # Numeric: 2026-04 or 2026_04
+    m = re.search(r'(\d{4})[-_](\d{2})', document_key)
+    if m:
+        return f"{m.group(1)}-{m.group(2)}"
+
+    # English month name in the filename
+    m = re.search(r'([A-Za-z]+)', document_key)
+    if m:
+        month_num = MONTH_MAP.get(m.group(1).lower())
+        if month_num:
+            year_m = re.search(r'(\d{4})', document_key)
+            year = year_m.group(1) if year_m else _log_year()
+            return f"{year}-{month_num}"
+
+    return None
+
+
+def parse_log_date(date_str, fallback_month=None):
+    """
+    Parse an OCR date string into 'YYYY-MM-DD', or return None if unparseable.
+    Supported formats:
+      - '2026-04-20', '2026/4/20'  (full ISO-like, keeps its own year)
+      - '4月20日'                   (Japanese)
+      - 'April 20', 'Apr 3rd'      (English month, optional ordinal)
+      - '4/20', '04-20'            (numeric month/day, uses LOG_YEAR)
+      - '20th', '3rd'              (day-only — requires fallback_month='YYYY-MM')
+    """
+    if not date_str:
+        return None
+    text = str(date_str).strip()
+
+    # Full ISO date: year present
+    m = re.search(r'(\d{4})[-/](\d{1,2})[-/](\d{1,2})', text)
+    if m:
+        return f"{m.group(1)}-{m.group(2).zfill(2)}-{m.group(3).zfill(2)}"
+
+    # Japanese: 4月20日
+    m = re.search(r'(\d{1,2})\s*月\s*(\d{1,2})\s*日?', text)
+    if m:
+        return f"{_log_year()}-{m.group(1).zfill(2)}-{m.group(2).zfill(2)}"
+
+    # English month + day: "April 20", "Apr 3rd"
+    m = re.search(r'([A-Za-z]+)\.?\s+(\d{1,2})(?:st|nd|rd|th)?', text)
+    if m:
+        month = MONTH_MAP.get(m.group(1).lower())
+        if month:
+            return f"{_log_year()}-{month}-{m.group(2).zfill(2)}"
+
+    # Numeric month/day: 4/20 or 04-20
+    m = re.search(r'(\d{1,2})[-/](\d{1,2})', text)
+    if m:
+        return f"{_log_year()}-{m.group(1).zfill(2)}-{m.group(2).zfill(2)}"
+
+    # Day-only ordinal: "20th", "3rd" — needs fallback_month='YYYY-MM'
+    if fallback_month:
+        m = re.search(r'^(\d{1,2})(?:st|nd|rd|th)?$', text)
+        if m:
+            return f"{fallback_month}-{m.group(1).zfill(2)}"
+
+    return None
+
+
+def get_historical_weather(date_str, api_key, fallback_month=None):
+    """
+    Fetch historical weather for the specific date listed on the paper.
+    Returns a (summary_string, raw_day_dict) tuple, or ("Weather N/A", None) when
+    the date is unparseable or the API call fails (never raises).
+    """
     try:
-        # Normalize date format for Visual Crossing API (e.g., "2026/02/07" -> "2026-02-07")
-        formatted_date = date_str.strip().replace("/", "-")
-        
+        formatted_date = parse_log_date(date_str, fallback_month=fallback_month)
+        if not formatted_date:
+            return "Weather N/A", None
+
         url = (
             f"https://weather.visualcrossing.com/VisualCrossingWebServices/rest/services/timeline/"
             f"{LAT},{LON}/{formatted_date}?key={api_key}&unitGroup=metric&include=days"
@@ -36,7 +142,7 @@ def get_historical_weather(date_str, api_key):
         res = requests.get(url, timeout=10)
         res.raise_for_status()
         day_data = res.json()['days'][0]
-        
+
         emoji = get_weather_emoji(day_data['conditions'])
         summary = f"{emoji} Avg:{day_data['temp']}/Min:{day_data['tempmin']}/Max:{day_data['tempmax']} ({day_data['conditions']})"
         return summary, day_data
@@ -44,26 +150,101 @@ def get_historical_weather(date_str, api_key):
         print(f"Weather Fetch Warning for {date_str}: {e}")
         return "Weather N/A", None
 
+
+def _quarantine_and_notify(s3, bucket, document, reason):
+    """
+    Copy a failed image to the review/ prefix and send an SNS notification so a
+    human can inspect it. Non-fatal: errors here are logged but never re-raised.
+    SNS is only attempted when SNS_TOPIC_ARN is configured.
+    """
+    try:
+        dest_key = f"{_REVIEW_PREFIX}{document}"
+        s3.copy_object(
+            Bucket=bucket,
+            CopySource={'Bucket': bucket, 'Key': document},
+            Key=dest_key,
+        )
+        print(f"[QUARANTINE] Copied {document} -> {dest_key} | Reason: {reason}")
+    except Exception as e:
+        print(f"[QUARANTINE] Failed to copy to review/: {e}")
+
+    sns_topic_arn = os.environ.get("SNS_TOPIC_ARN", "")
+    if sns_topic_arn:
+        try:
+            sns = boto3.client('sns')
+            sns.publish(
+                TopicArn=sns_topic_arn,
+                Subject="[ParkinSync] 手動確認が必要なファイル",
+                Message=(
+                    f"ファイル: s3://{bucket}/{document}\n"
+                    f"理由: {reason}\n"
+                    f"コピー先: s3://{bucket}/{_REVIEW_PREFIX}{document}"
+                ),
+            )
+        except Exception as e:
+            print(f"[SNS] Publish failed: {e}")
+
+
+def _is_already_processed(s3, bucket, document):
+    """Return True if the S3 object has already been tagged as processed."""
+    try:
+        resp = s3.get_object_tagging(Bucket=bucket, Key=document)
+        for tag in resp.get('TagSet', []):
+            if tag['Key'] == _PROCESSED_TAG and tag['Value'] == _PROCESSED_VALUE:
+                return True
+    except Exception as e:
+        print(f"[IDEMPOTENCY] Tag check failed (treating as unprocessed): {e}")
+    return False
+
+
+def _mark_as_processed(s3, bucket, document):
+    """Tag the S3 object as processed to prevent reprocessing, preserving other tags."""
+    try:
+        resp = s3.get_object_tagging(Bucket=bucket, Key=document)
+        existing = [t for t in resp.get('TagSet', []) if t['Key'] != _PROCESSED_TAG]
+        existing.append({'Key': _PROCESSED_TAG, 'Value': _PROCESSED_VALUE})
+        s3.put_object_tagging(Bucket=bucket, Key=document, Tagging={'TagSet': existing})
+    except Exception as e:
+        print(f"[IDEMPOTENCY] Failed to tag object: {e}")
+
+
 def lambda_handler(event, context):
     """
-    v1.3.0 - Final Production Code.
-    Features: Multi-row extraction, Historical Weather Sync, 25-column mapping.
+    v1.4.0 - reconciled production handler (Issue #27).
+    Keeps the 25-column master schema and historical-weather enrichment, and adds
+    the hardening that had only existed in the deployed image: idempotent S3
+    processing, OCR-failure quarantine + notification, and filename-assisted date
+    recovery. On an unexpected error the file is quarantined and the error is
+    re-raised so Lambda can retry / route to a DLQ.
     """
+    bucket = event['Records'][0]['s3']['bucket']['name']
+    key = urllib.parse.unquote_plus(event['Records'][0]['s3']['object']['key'], encoding='utf-8')
+
+    # Skip files already sitting in the review/ quarantine folder.
+    if key.startswith(_REVIEW_PREFIX):
+        return {'statusCode': 200, 'body': 'Skipped review/ prefix file.'}
+
+    # Initialize AWS clients inside the handler for clean unit-test mocking.
+    s3 = boto3.client('s3')
     textract = boto3.client('textract')
     secrets_client = boto3.client('secretsmanager', region_name=REGION_NAME)
 
-    try:
-        # 1. Retrieve S3 Event Details
-        bucket = event['Records'][0]['s3']['bucket']['name']
-        key = urllib.parse.unquote_plus(event['Records'][0]['s3']['object']['key'], encoding='utf-8')
+    # Idempotency: never reprocess a file we already ingested.
+    if _is_already_processed(s3, bucket, key):
+        print(f"[IDEMPOTENCY] Already processed: {key}")
+        return {'statusCode': 200, 'body': f'Already processed: {key}'}
 
-        # 2. Retrieve Credentials (Zero Hardcoding Policy)
+    # Filename month hint, used to resolve day-only date cells (e.g. "20th").
+    fallback_month = _infer_month_from_key(key)
+
+    try:
+        # 1. Retrieve credentials (Zero Hardcoding Policy).
         secret_value = secrets_client.get_secret_value(SecretId=SECRET_ID)
         secrets = json.loads(secret_value['SecretString'])
         vc_key = secrets.get('VISUAL_CROSSING_KEY')
         spreadsheet_id = secrets.get('GOOGLE_SHEET_ID')
 
-        # 3. AWS Textract Analysis (Extracting Tables)
+        # 2. AWS Textract Analysis (Extracting Tables).
         response = textract.analyze_document(
             Document={'S3Object': {'Bucket': bucket, 'Name': key}},
             FeatureTypes=["TABLES"]
@@ -72,9 +253,10 @@ def lambda_handler(event, context):
         blocks = response['Blocks']
         tables = [b for b in blocks if b['BlockType'] == 'TABLE']
         if not tables:
+            _quarantine_and_notify(s3, bucket, key, "Textract: テーブルが検出されませんでした")
             return {'statusCode': 404, 'body': 'No table detected in PDF'}
 
-        # Map Textract blocks into rows/cols dictionary
+        # Map Textract blocks into rows/cols dictionary.
         rows = {}
         for rel in tables[0].get('Relationships', []):
             if rel['Type'] == 'CHILD':
@@ -83,7 +265,7 @@ def lambda_handler(event, context):
                     if cell['BlockType'] == 'CELL':
                         r, c = cell['RowIndex'], cell['ColumnIndex']
                         if r not in rows: rows[r] = {}
-                        
+
                         # Extract text from the cell
                         txt = ""
                         for cell_rel in cell.get('Relationships', []):
@@ -94,22 +276,22 @@ def lambda_handler(event, context):
                                         txt += word_b['Text'] + " "
                         rows[r][c] = txt.strip()
 
-        # 4. Processing ALL Rows & Fetching Historical Weather
-        processed_ts = (datetime.datetime.utcnow() + datetime.timedelta(hours=9)).strftime("%Y-%m-%d %H:%M")
+        # 3. Process ALL rows & fetch historical weather.
+        processed_ts = datetime.datetime.now(JST).strftime("%Y-%m-%d %H:%M")
         final_data_batch = []
 
         for r_idx in sorted(rows.keys()):
             row = rows[r_idx]
-            dt_val = row.get(1, "") # Assuming Col 1 is the Date
-            
-            # Filter for rows that start with a valid year (e.g., 2026)
+            dt_val = row.get(1, "")  # Assuming Col 1 is the Date
+
+            # Skip header/non-data rows.
             if not dt_val or "Date" in dt_val or r_idx == 1:
                 continue
-            
-            # Fetch weather matching the specific date on the paper
-            weather_summary, raw_weather = get_historical_weather(dt_val, vc_key)
 
-            # Build the 25-column Master Schema (A to Y)
+            # Fetch weather matching the specific date on the paper.
+            weather_summary, raw_weather = get_historical_weather(dt_val, vc_key, fallback_month=fallback_month)
+
+            # Build the 25-column Master Schema (A to Y).
             aligned_row = ["" for _ in range(25)]
             aligned_row[0] = processed_ts           # A: Processed Time
             aligned_row[1] = dt_val                 # B: Date from Paper
@@ -124,20 +306,20 @@ def lambda_handler(event, context):
             aligned_row[10] = row.get(10, "")       # K: Emergency Call
             aligned_row[11] = row.get(11, "")       # L: Condition C
             aligned_row[12] = row.get(12, "")       # M: Daily Notes
-            
-            # Weather Mapping (P-T)
+
+            # Weather Mapping (P-T).
             aligned_row[15] = weather_summary       # P: Weather Summary
             if raw_weather:
                 aligned_row[16] = str(raw_weather['temp'])     # Q: Avg
                 aligned_row[17] = str(raw_weather['tempmin'])  # R: Min
                 aligned_row[18] = str(raw_weather['tempmax'])  # S: Max
                 aligned_row[19] = raw_weather['conditions']    # T: Cond
-            
+
             aligned_row[24] = key                   # Y: File Path (incoming/...)
 
             final_data_batch.append(aligned_row)
 
-        # 5. Batch Update to Google Sheets (Targeting Sheet1)
+        # 4. Batch update to Google Sheets (Targeting Sheet1).
         if final_data_batch:
             creds = service_account.Credentials.from_service_account_info(
                 secrets, scopes=['https://www.googleapis.com/auth/spreadsheets']
@@ -150,8 +332,12 @@ def lambda_handler(event, context):
                 body={'values': final_data_batch}
             ).execute()
 
+        # 5. Mark as processed to prevent re-ingestion on duplicate S3 events.
+        _mark_as_processed(s3, bucket, key)
+
         return {'statusCode': 200, 'body': f'Successfully processed {len(final_data_batch)} rows.'}
 
     except Exception as e:
         print(f"[CRITICAL ERROR] {str(e)}")
-        return {'statusCode': 500, 'body': 'Internal Processing Error'}
+        _quarantine_and_notify(s3, bucket, key, f"処理中のエラー: {str(e)}")
+        raise
