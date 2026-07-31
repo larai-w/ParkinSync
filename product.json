@@ -1,0 +1,122 @@
+{
+	"$schema": "https://raw.githubusercontent.com/larai-w/veai-jp-web/main/schemas/product.schema.json",
+	"schemaVersion": 1,
+	"slug": "parkinsync",
+	"name": "ParkinSync",
+	"portfolioRole": "analytics-research-core",
+	"audiences": [
+		"family-caregiver",
+		"care-professional",
+		"researcher",
+		"technical-reviewer"
+	],
+	"availability": {
+		"stage": "research-prototype",
+		"access": "private",
+		"summary": {
+			"en": "Private household research prototype; the public repository documents the pipeline, tests, and delivery evidence.",
+			"ja": "単一世帯で運用中の研究プロトタイプです。公開リポジトリではパイプライン、テスト、開発証拠を確認できます。"
+		}
+	},
+	"evidenceLevel": "implemented",
+	"version": "1.3.0",
+	"canonicalRepository": "https://github.com/larai-w/ParkinSync",
+	"publicUrls": {
+		"productPage": "https://veai.jp/apps/parkinsync/",
+		"project": "https://github.com/users/larai-w/projects/4"
+	},
+	"lastVerified": "2026-07-31",
+	"site": {
+		"status": "research-prototype",
+		"order": 5,
+		"icon": "🧠",
+		"themeColor": "#e0f1ef",
+		"techStack": [
+			"AWS Lambda",
+			"Amazon Textract",
+			"SwitchBot API",
+			"EventBridge",
+			"Human review"
+		],
+		"en": {
+			"name": "ParkinSync",
+			"tagline": "From caregiver paper logs to analysis-ready evidence",
+			"description": "A private-household research prototype that combines human-verified care-log extraction with weather and indoor-environment context for exploratory analysis. It is not a diagnostic tool or a public care service."
+		},
+		"ja": {
+			"name": "ParkinSync",
+			"kana": "パーキンシンク",
+			"tagline": "紙のケア記録を、分析できるデータへ",
+			"description": "介護者の紙記録を人が確認し、気象・室内環境データと組み合わせる単一世帯向け研究プロトタイプです。診断や一般公開のケアサービスではありません。"
+		}
+	},
+	"capabilities": [
+		{
+			"id": "human-reviewed-ocr",
+			"label": {
+				"en": "Human-reviewed OCR pipeline for structured paper logs",
+				"ja": "構造化された紙記録の人手確認付きOCRパイプライン"
+			},
+			"status": "implemented",
+			"evidenceUrls": [
+				"https://github.com/larai-w/ParkinSync/blob/main/src/ParkinSync_OCR_Handler.py"
+			]
+		},
+		{
+			"id": "environment-enrichment",
+			"label": {
+				"en": "Weather and indoor-environment enrichment",
+				"ja": "気象・室内環境データの付加"
+			},
+			"status": "implemented",
+			"evidenceUrls": [
+				"https://github.com/larai-w/ParkinSync/blob/main/src/indoor_temp_logger.py"
+			]
+		},
+		{
+			"id": "fixed-analysis-schema",
+			"label": {
+				"en": "Validated 25-column analysis schema",
+				"ja": "検証付き25列分析スキーマ"
+			},
+			"status": "implemented",
+			"evidenceUrls": [
+				"https://github.com/larai-w/ParkinSync/blob/main/analytics/pd_correlation_analysis.py"
+			]
+		},
+		{
+			"id": "multi-source-readiness-report",
+			"label": {
+				"en": "Thirty-day multi-source data-readiness report",
+				"ja": "30日間の複数データソース品質レポート"
+			},
+			"status": "planned",
+			"evidenceUrls": [
+				"https://github.com/larai-w/ParkinSync/issues/32"
+			]
+		},
+		{
+			"id": "multi-participant-research",
+			"label": {
+				"en": "Governed multi-participant research collection",
+				"ja": "ガバナンスを伴う複数参加者研究"
+			},
+			"status": "planned",
+			"evidenceUrls": [
+				"https://github.com/larai-w/ParkinSync/issues/35"
+			]
+		}
+	],
+	"boundaries": {
+		"en": [
+			"Caregiver observations are high-context reference data, not automatic clinical ground truth.",
+			"Exploratory associations must not be presented as diagnosis, treatment advice, or causal findings.",
+			"The current operational context is private and does not provide public self-service access."
+		],
+		"ja": [
+			"介護者の観察は文脈の豊富な参照データであり、自動的に臨床的正解とはみなしません。",
+			"探索的な関連を診断、治療助言、因果関係として表現しません。",
+			"現在は非公開の運用であり、一般向けセルフサービスではありません。"
+		]
+	}
+}

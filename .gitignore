@@ -5,6 +5,8 @@ __pycache__/
 
 # Ignore sensitive credential files (Very Important!)
 *.json
+# Public product metadata is intentionally reviewed and tracked.
+!product.json
 .env
 secret_key.txt
 
