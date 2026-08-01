@@ -7,7 +7,8 @@ ParkinSync is managed as a solo, AI-assisted, evidence-led product and research 
 1. Frame a caregiver, operator, data-quality, or research outcome.
 2. Write observable acceptance criteria and identify sensitive-data boundaries.
 3. Record architecture and product tradeoffs before material cloud or schema changes.
-4. Implement a small increment against anonymized fixtures where possible.
+4. Implement a small increment against deterministic synthetic fixtures by default. Use a
+   publication-reviewed artifact only when the documented purpose cannot be met synthetically.
 5. Retain test, CI, operator, or production-safe validation evidence.
 6. Review privacy, recovery, and health-claims boundaries before release.
 
