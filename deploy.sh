@@ -33,6 +33,7 @@ AWS_REGION="${AWS_REGION:-us-east-1}"
 PYTHON_BIN="${PYTHON_BIN:-python3}"
 LAMBDA_PLATFORM="${LAMBDA_PLATFORM:-manylinux2014_x86_64}"
 LAMBDA_PYTHON_VERSION="${LAMBDA_PYTHON_VERSION:-3.12}"
+VENDOR_DEPS="${VENDOR_DEPS:-0}"
 DRY_RUN="${DRY_RUN:-0}"
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -49,15 +50,18 @@ build_zip() {
   local build_dir="$1"
   local output_zip="$2"
 
-  # Build for the Lambda Linux runtime even when this script runs on macOS.
-  # Binary-only mode fails closed instead of compiling host-specific extensions.
-  "$PYTHON_BIN" -m pip install \
-    --platform "$LAMBDA_PLATFORM" \
-    --implementation cp \
-    --python-version "$LAMBDA_PYTHON_VERSION" \
-    --only-binary=:all: \
-    --target "$build_dir" \
-    "${LAMBDA_DEPS[@]}"
+  # Production functions use compatible Lambda Layers, so source-only is the
+  # default. Opt-in vendoring still targets Linux and fails closed if a binary
+  # wheel is unavailable; it must not compile host-specific extensions.
+  if [ "$VENDOR_DEPS" = "1" ]; then
+    "$PYTHON_BIN" -m pip install \
+      --platform "$LAMBDA_PLATFORM" \
+      --implementation cp \
+      --python-version "$LAMBDA_PYTHON_VERSION" \
+      --only-binary=:all: \
+      --target "$build_dir" \
+      "${LAMBDA_DEPS[@]}"
+  fi
   (
     cd "$build_dir"
     zip -qr "$output_zip" .
@@ -70,7 +74,7 @@ deploy_function_code() {
   local zip_path="$2"
 
   if [ "$DRY_RUN" = "1" ]; then
-    echo "DRY_RUN: built Linux package for $function_name ($(du -h "$zip_path" | cut -f1))"
+    echo "DRY_RUN: built package for $function_name ($(du -h "$zip_path" | cut -f1), vendor_deps=$VENDOR_DEPS)"
     return
   fi
 

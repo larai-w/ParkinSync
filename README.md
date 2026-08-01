@@ -165,7 +165,7 @@ python analytics/pd_correlation_analysis.py
 # Deploy only the indoor telemetry Lambda; OCR remains behind its release guard
 DEPLOY_TARGET=iot AWS_REGION=us-east-1 bash deploy.sh
 
-# Build and verify the Linux package without updating AWS
+# Build and verify the source-only package without updating AWS
 DRY_RUN=1 DEPLOY_TARGET=iot bash deploy.sh
 ```
 
