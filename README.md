@@ -10,7 +10,20 @@ Caregiver observations written on structured paper forms are manually transcribe
 
 ## Why this exists
 
-Motor symptoms in Parkinson's Disease are often reported to vary with environmental factors such as temperature and barometric pressure. Everyday care tools rarely capture this context alongside caregiver observations. ParkinSync collects both streams, synchronizes them by date, and produces a tidy dataset for exploratory data analysis.
+OFF periods in Parkinson's Disease are described in varied ways and are not always captured or
+communicated systematically. Everyday care tools also rarely align caregiver observations with
+contextual data in a form that can be reviewed later. ParkinSync synchronizes these streams by date
+and produces a tidy dataset for exploratory analysis; it does not test treatment efficacy or establish
+that an observed association is causal.
+
+## Research Evidence and Boundaries
+
+ParkinSync's design rationale is informed by peer-reviewed work on medication-adherence technology,
+health-technology adoption among older adults, OFF-period reporting, gastrointestinal barriers to
+levodopa absorption, and automation bias. These sources motivate product decisions; they do not
+validate ParkinSync's clinical outcomes. See the
+**[claim-to-source evidence map](docs/RESEARCH_EVIDENCE.md)** for supported claims, limitations, and
+the publication boundary for project-generated observations.
 
 ---
 
@@ -20,7 +33,8 @@ ParkinSync doubles as a working **product-management portfolio** — a research-
 solo and AI-assisted, delivered with an evidence-first, boundary-aware discipline. What it demonstrates:
 
 - **Evidence-based delivery** — the goal is a reviewable, analysis-ready dataset, and the project is
-  explicit about what it does *not* claim: it is exploratory, not diagnostic, on limited anonymized data.
+  explicit about what it does *not* claim: public fixtures and exploratory analyses are not clinical
+  evidence, diagnosis, or treatment guidance.
 - **Stakeholder management** — it preserves the caregiver's existing paper workflow (no new app to adopt)
   while producing structured data for whoever reviews it later; a human stays at the boundary where raw
   observations become records.
@@ -31,6 +45,26 @@ solo and AI-assisted, delivered with an evidence-first, boundary-aware disciplin
   and **[issues](https://github.com/larai-w/ParkinSync/issues)** tracking experiments, decisions and tasks.
 
 Related engineering write-ups are on the [VEAI LAB blog](https://veai.jp/blog/).
+
+---
+
+## Research Direction
+
+ParkinSync is also the seed of a longer research programme: moving from **manual, environment-correlated
+logging** toward **automated, sensor-driven analysis of movement in Parkinson's Disease**. Planned directions:
+
+- **Wearable / ambient sensing** — augment or replace manual paper logs with inertial and ambient sensors
+  to capture gait, tremor, and daily-activity signals continuously and unobtrusively at home.
+- **Machine learning on sensor data** — investigate whether validated sensor datasets can support
+  detection of **gait anomalies, fall risk, and daily-rhythm disruptions**, and analysis of how motor
+  observations co-vary with environmental context. These questions require consent, representative
+  data, and validation beyond the current repository.
+- **Human-in-the-loop clinical interpretation** — keep a caregiver or clinician at the boundary between
+  raw signals and care decisions; the system informs, it does not diagnose.
+
+This direction is exploratory and forward-looking — the current codebase is the data-pipeline foundation it
+would build on. It aligns with doctoral research interests in **AgeTech, human activity recognition, and AI
+for digital health and wearable sensing.**
 
 ---
 
@@ -63,7 +97,7 @@ Caregiver paper log
                          avg/min/max  (no additional serverless cost)
 
 Master ledger (Google Sheets, 25-column schema)
-  └─ Amazon SageMaker  (Pandas/NumPy Pearson r correlation, lag analysis)
+  └─ Amazon SageMaker  (exploratory Pearson r and lag analyses)
 
 Secrets: AWS Secrets Manager (Google SA JSON, SwitchBot key, Weather API key)
 IaC: deploy.sh (bash) — packages Lambda zips and calls aws lambda update-function-code
@@ -141,7 +175,7 @@ tests/
   test_lambda_function.py      # unittest suite
 analytics/
   pd_correlation_analysis.py   # EDA / schema audit script
-  sample_data_v1.3.csv         # Anonymized sample dataset (25 columns)
+  sample_data_v1.3.csv         # Development fixture; not clinical evidence (25 columns)
 architecture/                  # SVG system and sequence diagrams
 design/                        # Paper log template, master schema definition
 docs/                          # Public user guide only
