@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# ⚠️ HEALTH-SAFETY GUARDRAIL (Issue #26) — do not remove without reading the doc.
+# HEALTH-SAFETY GUARDRAIL (Issue #26) - do not remove without reading the doc.
 # As of 2026-07-28, the deployed OCR Lambda is NOT repository `main`: it is
 # byte-identical to `feature/fable5-mvp-hardening` and has hardening (idempotent S3
 # processing, OCR failure quarantine/notification, filename date recovery, broader
@@ -10,9 +10,22 @@ set -euo pipefail
 # Reconcile `main` with production first (port the hardened capabilities via PRs),
 # then remove this guardrail. Details + rollback evidence:
 #   docs/PRODUCTION_LAMBDA_RECONCILIATION.md
-if [ "${ALLOW_UNRECONCILED_DEPLOY:-}" != "1" ]; then
+DEPLOY_TARGET="${DEPLOY_TARGET:-all}"
+case "$DEPLOY_TARGET" in
+  all|ocr|iot) ;;
+  *)
+    echo "DEPLOY_TARGET must be one of: all, ocr, iot" >&2
+    exit 2
+    ;;
+esac
+
+# An IoT-only release cannot overwrite the OCR Lambda, so it is safe to pass this
+# guard. OCR and all-component releases remain blocked until the production source
+# of truth is explicitly reconciled.
+if [ "$DEPLOY_TARGET" != "iot" ] && [ "${ALLOW_UNRECONCILED_DEPLOY:-}" != "1" ]; then
   echo "Refusing to deploy: main is not reconciled with production (Issue #26)." >&2
   echo "See docs/PRODUCTION_LAMBDA_RECONCILIATION.md. Override with ALLOW_UNRECONCILED_DEPLOY=1." >&2
+  echo "For the indoor telemetry Lambda only, use DEPLOY_TARGET=iot." >&2
   exit 1
 fi
 
@@ -40,27 +53,31 @@ build_zip() {
   )
 }
 
-# OCR Lambda: production handler is configured as lambda_function.lambda_handler,
-# so the source file is copied to that module name at the ZIP root.
-OCR_BUILD="$BUILD_ROOT/ocr"
-OCR_ZIP="$BUILD_ROOT/parkinsync-ocr-handler.zip"
-mkdir -p "$OCR_BUILD"
-cp "$ROOT_DIR/src/ParkinSync_OCR_Handler.py" "$OCR_BUILD/lambda_function.py"
-build_zip "$OCR_BUILD" "$OCR_ZIP"
+if [ "$DEPLOY_TARGET" = "all" ] || [ "$DEPLOY_TARGET" = "ocr" ]; then
+  # OCR Lambda: production handler is configured as lambda_function.lambda_handler,
+  # so the source file is copied to that module name at the ZIP root.
+  OCR_BUILD="$BUILD_ROOT/ocr"
+  OCR_ZIP="$BUILD_ROOT/parkinsync-ocr-handler.zip"
+  mkdir -p "$OCR_BUILD"
+  cp "$ROOT_DIR/src/ParkinSync_OCR_Handler.py" "$OCR_BUILD/lambda_function.py"
+  build_zip "$OCR_BUILD" "$OCR_ZIP"
 
-aws lambda update-function-code \
-  --region "$AWS_REGION" \
-  --function-name ParkinSync_OCR_Handler \
-  --zip-file "fileb://$OCR_ZIP"
+  aws lambda update-function-code \
+    --region "$AWS_REGION" \
+    --function-name ParkinSync_OCR_Handler \
+    --zip-file "fileb://$OCR_ZIP"
+fi
 
-# Indoor telemetry Lambda also uses lambda_function.lambda_handler in AWS.
-IOT_BUILD="$BUILD_ROOT/iot"
-IOT_ZIP="$BUILD_ROOT/parkinsync-indoor-temp-logger.zip"
-mkdir -p "$IOT_BUILD"
-cp "$ROOT_DIR/src/indoor_temp_logger.py" "$IOT_BUILD/lambda_function.py"
-build_zip "$IOT_BUILD" "$IOT_ZIP"
+if [ "$DEPLOY_TARGET" = "all" ] || [ "$DEPLOY_TARGET" = "iot" ]; then
+  # Indoor telemetry Lambda also uses lambda_function.lambda_handler in AWS.
+  IOT_BUILD="$BUILD_ROOT/iot"
+  IOT_ZIP="$BUILD_ROOT/parkinsync-indoor-temp-logger.zip"
+  mkdir -p "$IOT_BUILD"
+  cp "$ROOT_DIR/src/indoor_temp_logger.py" "$IOT_BUILD/lambda_function.py"
+  build_zip "$IOT_BUILD" "$IOT_ZIP"
 
-aws lambda update-function-code \
-  --region "$AWS_REGION" \
-  --function-name ParkinSync_IndoorTemp_Logger \
-  --zip-file "fileb://$IOT_ZIP"
+  aws lambda update-function-code \
+    --region "$AWS_REGION" \
+    --function-name ParkinSync_IndoorTemp_Logger \
+    --zip-file "fileb://$IOT_ZIP"
+fi

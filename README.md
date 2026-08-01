@@ -21,7 +21,16 @@ that an observed association is causal.
 ParkinSync's design rationale is informed by peer-reviewed work on medication-adherence technology,
 health-technology adoption among older adults, OFF-period reporting, gastrointestinal barriers to
 levodopa absorption, and automation bias. These sources motivate product decisions; they do not
-validate ParkinSync's clinical outcomes. See the
+validate ParkinSync's clinical outcomes.
+
+Key sources:
+
+- [Bohlmann, Mostafa, and Kumar (2021) — machine learning and medication adherence](https://doi.org/10.2196/26993)
+- [Bertolazzi, Quaglia, and Bongelli (2024) — health-technology adoption by older adults](https://doi.org/10.1186/s12889-024-18036-5)
+- [Mantri et al. (2021) — descriptions and self-reported triggers of OFF periods](https://doi.org/10.17294/2330-0698.1836)
+- [Leta et al. (2023) — gastrointestinal barriers to levodopa transport and absorption](https://doi.org/10.1111/ene.15734)
+
+See the
 **[claim-to-source evidence map](docs/RESEARCH_EVIDENCE.md)** for supported claims, limitations, and
 the publication boundary for project-generated observations.
 
@@ -90,11 +99,11 @@ Caregiver paper log
          Amazon EventBridge  (cron: every 3 hours)
                 ▼
          Lambda: ParkinSync_IndoorTemp_Logger  (Python 3.12)
-           └─ SwitchBot Open API  (indoor temperature/humidity)
-               └─ Google Sheets API v4  (staging tab)
-                      │
-                      └─ Native spreadsheet formulas compute daily
-                         avg/min/max  (no additional serverless cost)
+           ├─ SwitchBot Open API  (indoor temperature)
+           └─ Google Sheets API v4
+                ├─ append measured-at timestamp + event ID to TempHistory
+                └─ recompute local-day avg/min/max and update
+                   U:X only when one matching master row exists
 
 Master ledger (Google Sheets, 25-column schema)
   └─ Amazon SageMaker  (exploratory Pearson r and lag analyses)
@@ -115,7 +124,7 @@ The OCR step is Human-in-the-Loop: Textract validates form structure but does no
 | Scheduling | Amazon EventBridge (3-hour cron) |
 | OCR / Audit | Amazon Textract |
 | Secrets | AWS Secrets Manager |
-| Aggregation | Google Sheets API v4 |
+| Aggregation | Python Lambda + Google Sheets API v4 |
 | IoT polling | SwitchBot Open API |
 | Weather enrichment | Visual Crossing Weather API |
 | Analytics | Amazon SageMaker, Python Pandas / NumPy / SciPy |
@@ -126,19 +135,13 @@ The OCR step is Human-in-the-Loop: Textract validates form structure but does no
 ## Testing
 
 ```
-tests/test_lambda_function.py  — 5 Python unittest cases
-  TestHistoricalWeather (2 cases):
-    - happy path: returns (summary, raw_data) tuple
-    - graceful degradation on network failure
-  TestWeatherEmoji (2 cases):
-    - condition-to-emoji mapping
-    - unknown condition fallback
-  TestLambdaHandler (1 case):
-    - returns HTTP 404 when Textract finds no table in document
-
-analytics/pd_correlation_analysis.py  — schema audit script
-    (verifies 25-column alignment, computes thermal gradient,
-     weekday/weekend split, symptom-temperature Pearson r)
+tests/test_lambda_function.py       — 29 OCR, weather, date, idempotency,
+                                      quarantine, and handler cases
+tests/test_indoor_temp_logger.py    — 9 synthetic telemetry cases covering daily
+                                      aggregation, JST measurement dates, retries,
+                                      missing/duplicate master dates, and mocked
+                                      end-to-end Sheets synchronization
+analytics/pd_correlation_analysis.py — schema and exploratory-analysis audit
 ```
 
 Run tests: `PYTHONPATH=src python -m unittest discover -s tests -v` (requires `pip install -r requirements.txt`)
@@ -159,8 +162,8 @@ PYTHONPATH=src python -m unittest discover -s tests -v
 # Schema audit (uses analytics/sample_data_v1.3.csv)
 python analytics/pd_correlation_analysis.py
 
-# Deploy both Lambda functions (requires AWS CLI + IAM permissions)
-AWS_REGION=us-east-1 bash deploy.sh
+# Deploy only the indoor telemetry Lambda; OCR remains behind its release guard
+DEPLOY_TARGET=iot AWS_REGION=us-east-1 bash deploy.sh
 ```
 
 ---
@@ -172,7 +175,8 @@ src/
   ParkinSync_OCR_Handler.py    # Event-driven Lambda: OCR + weather enrichment
   indoor_temp_logger.py        # Schedule-driven Lambda: SwitchBot telemetry
 tests/
-  test_lambda_function.py      # unittest suite
+  test_lambda_function.py      # OCR and weather unittest suite
+  test_indoor_temp_logger.py   # Synthetic daily-aggregation unittest suite
 analytics/
   pd_correlation_analysis.py   # EDA / schema audit script
   sample_data_v1.3.csv         # Development fixture; not clinical evidence (25 columns)
