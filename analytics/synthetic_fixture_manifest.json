@@ -1,0 +1,21 @@
+{
+  "classification": "synthetic",
+  "date_range": {
+    "end": "2035-01-21",
+    "start": "2035-01-01"
+  },
+  "fixture": "synthetic_sample_data_v1.3.csv",
+  "generator": "scripts/generate_synthetic_fixture.py",
+  "intended_use": [
+    "schema validation",
+    "software tests",
+    "exploratory-analysis demonstration"
+  ],
+  "prohibited_use": [
+    "clinical inference",
+    "performance claims",
+    "treatment or diagnostic decisions"
+  ],
+  "provenance": "Generated solely from the public schema and invented scenarios; no participant, household, or care-setting records were used.",
+  "record_count": 21
+}

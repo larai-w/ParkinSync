@@ -32,7 +32,9 @@ Key sources:
 
 See the
 **[claim-to-source evidence map](docs/RESEARCH_EVIDENCE.md)** for supported claims, limitations, and
-the publication boundary for project-generated observations.
+the publication boundary for project-generated observations. The
+**[data governance policy](docs/DATA_GOVERNANCE.md)** defines consent, access, retention, research,
+publication tiers, and time-series re-identification review.
 
 ---
 
@@ -141,7 +143,7 @@ tests/test_indoor_temp_logger.py    — 9 synthetic telemetry cases covering dai
                                       aggregation, JST measurement dates, retries,
                                       missing/duplicate master dates, and mocked
                                       end-to-end Sheets synchronization
-analytics/pd_correlation_analysis.py — schema and exploratory-analysis audit
+analytics/pd_correlation_analysis.py — synthetic-fixture schema and EDA audit
 ```
 
 Run tests: `PYTHONPATH=src python -m unittest discover -s tests -v` (requires `pip install -r requirements.txt`)
@@ -159,8 +161,11 @@ pip install -r requirements.txt
 # Unit tests
 PYTHONPATH=src python -m unittest discover -s tests -v
 
-# Schema audit (uses analytics/sample_data_v1.3.csv)
+# Schema audit (uses the deterministic synthetic fixture)
 python analytics/pd_correlation_analysis.py
+
+# Confirm generated public artifacts are reproducible
+python scripts/generate_synthetic_fixture.py --check
 
 # Deploy only the indoor telemetry Lambda; OCR remains behind its release guard
 DEPLOY_TARGET=iot AWS_REGION=us-east-1 bash deploy.sh
@@ -182,10 +187,11 @@ tests/
   test_indoor_temp_logger.py   # Synthetic daily-aggregation unittest suite
 analytics/
   pd_correlation_analysis.py   # EDA / schema audit script
-  sample_data_v1.3.csv         # Development fixture; not clinical evidence (25 columns)
+  synthetic_sample_data_v1.3.csv # Deterministic fixture; not clinical evidence
+  synthetic_fixture_manifest.json # Public provenance and permitted-use boundary
 architecture/                  # SVG system and sequence diagrams
 design/                        # Paper log template, master schema definition
-docs/                          # Public user guide only
+docs/                          # Public product, evidence, and governance documentation
 content/blog-drafts/           # Anonymized GitHub case-study draft
 scripts/                       # CI and repository hygiene checks
 deploy.sh                      # Lambda packaging and deployment script
@@ -196,9 +202,12 @@ deploy.sh                      # Lambda packaging and deployment script
 ## Security & Privacy
 
 - All API credentials (Google Service Account JSON, SwitchBot key, Visual Crossing key) are stored exclusively in AWS Secrets Manager — no hardcoded values in source.
-- Personally identifiable information is omitted at the ingestion boundary.
+- The ingestion contract excludes personally identifiable information; each approved collection must
+  enforce its reviewed data map before records enter the pipeline.
 - IAM roles follow the principle of least privilege, scoped to required S3 buckets and Sheets targets.
 - Capstone source documents and non-anonymized PDFs are intentionally excluded from the public repository. CI blocks known report filenames, office-source documents, and common secret patterns.
+- Participant-derived data is not permitted in Git. See [Data Governance](docs/DATA_GOVERNANCE.md) for
+  consent, withdrawal, deletion, retention, access, publication, and re-identification controls.
 
 ---
 

@@ -28,9 +28,10 @@ and correlation results are not public claims. A correlation result should be pu
 dataset has a documented publication basis and the analysis exposes sample size, missing-data handling,
 assumptions, uncertainty, and reproducible code. Even then, an association is not causation.
 
-Project files such as `analytics/sample_data_v1.3.csv` and generated charts are development artifacts,
-not clinical evidence. Their publication status and re-identification risk remain governed by
-[Issue #35](https://github.com/larai-w/ParkinSync/issues/35).
+The tracked `analytics/synthetic_sample_data_v1.3.csv` is generated solely from the public schema and
+invented scenarios. It is suitable for software demonstrations, not clinical inference. Generated
+charts are not tracked. Participant-derived findings must pass the publication tier, consent, and
+re-identification gates in [Data Governance](DATA_GOVERNANCE.md).
 
 ## Claim language
 

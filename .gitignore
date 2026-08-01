@@ -7,6 +7,8 @@ __pycache__/
 *.json
 # Public product metadata is intentionally reviewed and tracked.
 !product.json
+# Public synthetic-fixture provenance is intentionally reviewed and tracked.
+!analytics/synthetic_fixture_manifest.json
 .env
 secret_key.txt
 
