@@ -31,6 +31,9 @@ fi
 
 AWS_REGION="${AWS_REGION:-us-east-1}"
 PYTHON_BIN="${PYTHON_BIN:-python3}"
+LAMBDA_PLATFORM="${LAMBDA_PLATFORM:-manylinux2014_x86_64}"
+LAMBDA_PYTHON_VERSION="${LAMBDA_PYTHON_VERSION:-3.12}"
+DRY_RUN="${DRY_RUN:-0}"
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BUILD_ROOT="$(mktemp -d)"
@@ -46,11 +49,35 @@ build_zip() {
   local build_dir="$1"
   local output_zip="$2"
 
-  "$PYTHON_BIN" -m pip install --target "$build_dir" "${LAMBDA_DEPS[@]}"
+  # Build for the Lambda Linux runtime even when this script runs on macOS.
+  # Binary-only mode fails closed instead of compiling host-specific extensions.
+  "$PYTHON_BIN" -m pip install \
+    --platform "$LAMBDA_PLATFORM" \
+    --implementation cp \
+    --python-version "$LAMBDA_PYTHON_VERSION" \
+    --only-binary=:all: \
+    --target "$build_dir" \
+    "${LAMBDA_DEPS[@]}"
   (
     cd "$build_dir"
     zip -qr "$output_zip" .
   )
+  zip -T "$output_zip" >/dev/null
+}
+
+deploy_function_code() {
+  local function_name="$1"
+  local zip_path="$2"
+
+  if [ "$DRY_RUN" = "1" ]; then
+    echo "DRY_RUN: built Linux package for $function_name ($(du -h "$zip_path" | cut -f1))"
+    return
+  fi
+
+  aws lambda update-function-code \
+    --region "$AWS_REGION" \
+    --function-name "$function_name" \
+    --zip-file "fileb://$zip_path"
 }
 
 if [ "$DEPLOY_TARGET" = "all" ] || [ "$DEPLOY_TARGET" = "ocr" ]; then
@@ -62,10 +89,7 @@ if [ "$DEPLOY_TARGET" = "all" ] || [ "$DEPLOY_TARGET" = "ocr" ]; then
   cp "$ROOT_DIR/src/ParkinSync_OCR_Handler.py" "$OCR_BUILD/lambda_function.py"
   build_zip "$OCR_BUILD" "$OCR_ZIP"
 
-  aws lambda update-function-code \
-    --region "$AWS_REGION" \
-    --function-name ParkinSync_OCR_Handler \
-    --zip-file "fileb://$OCR_ZIP"
+  deploy_function_code "ParkinSync_OCR_Handler" "$OCR_ZIP"
 fi
 
 if [ "$DEPLOY_TARGET" = "all" ] || [ "$DEPLOY_TARGET" = "iot" ]; then
@@ -76,8 +100,5 @@ if [ "$DEPLOY_TARGET" = "all" ] || [ "$DEPLOY_TARGET" = "iot" ]; then
   cp "$ROOT_DIR/src/indoor_temp_logger.py" "$IOT_BUILD/lambda_function.py"
   build_zip "$IOT_BUILD" "$IOT_ZIP"
 
-  aws lambda update-function-code \
-    --region "$AWS_REGION" \
-    --function-name ParkinSync_IndoorTemp_Logger \
-    --zip-file "fileb://$IOT_ZIP"
+  deploy_function_code "ParkinSync_IndoorTemp_Logger" "$IOT_ZIP"
 fi

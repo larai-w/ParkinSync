@@ -68,10 +68,12 @@ to the actual sensor-poll date; they are not backdated to the EventBridge schedu
 Deploy this component without touching the separately guarded OCR Lambda:
 
 ```bash
+DRY_RUN=1 DEPLOY_TARGET=iot bash deploy.sh
 DEPLOY_TARGET=iot AWS_REGION=us-east-1 bash deploy.sh
 ```
 
-Deployment requires an explicit production review. Do not use
+The first command builds and validates a Linux x86_64 Lambda package without updating AWS. Deployment
+requires an explicit production review. Do not use
 `ALLOW_UNRECONCILED_DEPLOY=1` for an IoT-only release.
 
 ---
