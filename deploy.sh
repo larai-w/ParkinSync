@@ -33,6 +33,12 @@ VENDOR_DEPS="${VENDOR_DEPS:-0}"
 DRY_RUN="${DRY_RUN:-0}"
 LAMBDA_ALIAS="${LAMBDA_ALIAS:-prod}"
 RELEASE_DESCRIPTION="${RELEASE_DESCRIPTION:-ParkinSync release via deploy.sh}"
+LAMBDA_TIMEOUT="${LAMBDA_TIMEOUT:-60}"
+
+if ! [[ "$LAMBDA_TIMEOUT" =~ ^[1-9][0-9]{0,2}$ ]] || [ "$LAMBDA_TIMEOUT" -gt 900 ]; then
+  echo "LAMBDA_TIMEOUT must be an integer between 1 and 900 seconds" >&2
+  exit 2
+fi
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BUILD_ROOT="$(mktemp -d)"
@@ -72,11 +78,17 @@ deploy_function_code() {
   local zip_path="$2"
 
   if [ "$DRY_RUN" = "1" ]; then
-    echo "DRY_RUN: would publish $function_name and move alias $LAMBDA_ALIAS ($(du -h "$zip_path" | cut -f1), vendor_deps=$VENDOR_DEPS)"
+    echo "DRY_RUN: would set timeout=${LAMBDA_TIMEOUT}s, publish $function_name and move alias $LAMBDA_ALIAS ($(du -h "$zip_path" | cut -f1), vendor_deps=$VENDOR_DEPS)"
     return
   fi
 
   local version
+  aws lambda update-function-configuration \
+    --region "$AWS_REGION" \
+    --function-name "$function_name" \
+    --timeout "$LAMBDA_TIMEOUT" \
+    >/dev/null
+
   aws lambda update-function-code \
     --region "$AWS_REGION" \
     --function-name "$function_name" \
