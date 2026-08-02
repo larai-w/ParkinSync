@@ -2,13 +2,9 @@
 set -euo pipefail
 
 # HEALTH-SAFETY GUARDRAIL (Issue #26) - do not remove without reading the doc.
-# As of 2026-07-28, the deployed OCR Lambda is NOT repository `main`: it is
-# byte-identical to `feature/fable5-mvp-hardening` and has hardening (idempotent S3
-# processing, OCR failure quarantine/notification, filename date recovery, broader
-# date parsing) that `main` lacks. Running this script from `main` as-is would
-# OVERWRITE the hardened production code with the simpler `main` code — a regression.
-# Reconcile `main` with production first (port the hardened capabilities via PRs),
-# then remove this guardrail. Details + rollback evidence:
+# The current source has been behaviorally reconciled and verified by tests, but
+# the owner should explicitly approve guardrail removal after reviewing the
+# evidence. Details + rollback evidence:
 #   docs/PRODUCTION_LAMBDA_RECONCILIATION.md
 DEPLOY_TARGET="${DEPLOY_TARGET:-all}"
 case "$DEPLOY_TARGET" in
@@ -35,6 +31,8 @@ LAMBDA_PLATFORM="${LAMBDA_PLATFORM:-manylinux2014_x86_64}"
 LAMBDA_PYTHON_VERSION="${LAMBDA_PYTHON_VERSION:-3.12}"
 VENDOR_DEPS="${VENDOR_DEPS:-0}"
 DRY_RUN="${DRY_RUN:-0}"
+LAMBDA_ALIAS="${LAMBDA_ALIAS:-prod}"
+RELEASE_DESCRIPTION="${RELEASE_DESCRIPTION:-ParkinSync release via deploy.sh}"
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BUILD_ROOT="$(mktemp -d)"
@@ -74,14 +72,48 @@ deploy_function_code() {
   local zip_path="$2"
 
   if [ "$DRY_RUN" = "1" ]; then
-    echo "DRY_RUN: built package for $function_name ($(du -h "$zip_path" | cut -f1), vendor_deps=$VENDOR_DEPS)"
+    echo "DRY_RUN: would publish $function_name and move alias $LAMBDA_ALIAS ($(du -h "$zip_path" | cut -f1), vendor_deps=$VENDOR_DEPS)"
     return
   fi
 
-  aws lambda update-function-code \
+  local version
+  version="$(aws lambda update-function-code \
     --region "$AWS_REGION" \
     --function-name "$function_name" \
-    --zip-file "fileb://$zip_path"
+    --zip-file "fileb://$zip_path" \
+    --publish \
+    --description "$RELEASE_DESCRIPTION" \
+    --query 'Version' \
+    --output text)"
+
+  if [ -z "$version" ] || [ "$version" = "None" ] || [ "$version" = "\$LATEST" ]; then
+    echo "Failed to obtain an immutable published version for $function_name" >&2
+    exit 1
+  fi
+
+  if aws lambda get-alias \
+    --region "$AWS_REGION" \
+    --function-name "$function_name" \
+    --name "$LAMBDA_ALIAS" \
+    >/dev/null 2>&1; then
+    aws lambda update-alias \
+      --region "$AWS_REGION" \
+      --function-name "$function_name" \
+      --name "$LAMBDA_ALIAS" \
+      --function-version "$version" \
+      --description "$RELEASE_DESCRIPTION" \
+      >/dev/null
+  else
+    aws lambda create-alias \
+      --region "$AWS_REGION" \
+      --function-name "$function_name" \
+      --name "$LAMBDA_ALIAS" \
+      --function-version "$version" \
+      --description "$RELEASE_DESCRIPTION" \
+      >/dev/null
+  fi
+
+  echo "Published $function_name version $version and moved alias $LAMBDA_ALIAS"
 }
 
 if [ "$DEPLOY_TARGET" = "all" ] || [ "$DEPLOY_TARGET" = "ocr" ]; then

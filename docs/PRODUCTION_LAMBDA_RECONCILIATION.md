@@ -6,6 +6,20 @@ Method: read-only AWS export + hash + source comparison. No production code was
 modified and no invocation was performed. No secrets, environment values, or care
 data are recorded here.
 
+## Follow-up verification (2026-08-02)
+
+The current `main` source was rechecked after the earlier reconciliation. It now
+contains the production hardening capabilities while retaining the repository's
+25-column master schema and URL-decoding of S3 object keys. The local suite passed
+with `PYTHONPATH=src .venv/bin/python -m unittest discover -s tests -v`: **43 tests,
+0 failures, 0 errors**.
+
+The historical comparison below remains valid for the 2026-07-28 snapshot, but a
+blind replacement of `src/ParkinSync_OCR_Handler.py` from the isolated hardening
+branch is no longer appropriate. The current release decision is to keep the
+guardrail until the owner reviews this evidence, then use the immutable-version plus
+`prod`-alias deployment path in `deploy.sh`.
+
 ## Summary (verified source of truth)
 
 **Production is NOT running repository `main`.** The deployed OCR Lambda is
