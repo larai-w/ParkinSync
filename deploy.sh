@@ -77,11 +77,14 @@ deploy_function_code() {
   fi
 
   local version
-  version="$(aws lambda update-function-code \
+  aws lambda update-function-code \
     --region "$AWS_REGION" \
     --function-name "$function_name" \
-    --zip-file "fileb://$zip_path" \
-    --publish \
+    --zip-file "fileb://$zip_path"
+
+  version="$(aws lambda publish-version \
+    --region "$AWS_REGION" \
+    --function-name "$function_name" \
     --description "$RELEASE_DESCRIPTION" \
     --query 'Version' \
     --output text)"
