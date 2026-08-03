@@ -1,0 +1,6 @@
+title = "ParkinSync gitleaks configuration"
+
+# Inherit the maintained default detector set. Add a narrow, reviewed allowlist only
+# after a confirmed false positive; never add real or example credentials here.
+[extend]
+useDefault = true

@@ -1,4 +1,16 @@
 #!/bin/sh
 set -eu
 
+# Publication and secret controls are complementary; neither replaces the other.
 python3 scripts/check_public_repo.py --staged
+
+if command -v gitleaks >/dev/null 2>&1; then
+  if ! gitleaks git --pre-commit --staged --redact --config .gitleaks.toml; then
+    echo ""
+    echo "pre-commit blocked: gitleaks detected a staged secret."
+    echo "Remove or rotate the secret; do not bypass this hook."
+    exit 1
+  fi
+else
+  echo "warning: gitleaks is unavailable; install it to enable the local staged secret scan."
+fi
