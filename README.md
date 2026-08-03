@@ -139,10 +139,10 @@ The OCR step is Human-in-the-Loop: Textract validates form structure but does no
 ```
 tests/test_lambda_function.py       — 29 OCR, weather, date, idempotency,
                                       quarantine, and handler cases
-tests/test_indoor_temp_logger.py    — 9 synthetic telemetry cases covering daily
+tests/test_indoor_temp_logger.py    — 11 synthetic telemetry cases covering daily
                                       aggregation, JST measurement dates, retries,
-                                      missing/duplicate master dates, and mocked
-                                      end-to-end Sheets synchronization
+                                      missing/duplicate master dates, dependency
+                                      failure propagation, and mocked Sheets sync
 analytics/pd_correlation_analysis.py — synthetic-fixture schema and EDA audit
 ```
 

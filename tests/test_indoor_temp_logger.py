@@ -96,6 +96,13 @@ class TestMasterSynchronization(unittest.TestCase):
 
 class TestTelemetryHandler(unittest.TestCase):
 
+    @patch("indoor_temp_logger.boto3.client")
+    def test_dependency_failure_is_reraised(self, mock_boto):
+        mock_boto.side_effect = RuntimeError("dependency unavailable")
+
+        with self.assertRaisesRegex(RuntimeError, "dependency unavailable"):
+            logger.lambda_handler({"id": "event-123"}, None)
+
     @patch("indoor_temp_logger.build")
     @patch("indoor_temp_logger.service_account.Credentials.from_service_account_info")
     @patch("indoor_temp_logger.requests.get")
@@ -148,6 +155,47 @@ class TestTelemetryHandler(unittest.TestCase):
             valueInputOption="RAW",
             body={"values": [["Avg:20.50/Min:20.50/Max:20.50", 20.5, 20.5, 20.5]]},
         )
+
+    @patch("indoor_temp_logger.build")
+    @patch("indoor_temp_logger.service_account.Credentials.from_service_account_info")
+    @patch("indoor_temp_logger.requests.get")
+    @patch("indoor_temp_logger.boto3.client")
+    @patch("indoor_temp_logger.current_sample_time")
+    def test_retry_skips_append_and_refreshes_aggregate(
+        self, mock_sample_time, mock_boto, mock_get, mock_credentials, mock_build
+    ):
+        mock_sample_time.return_value = datetime.datetime(
+            2026, 4, 20, 9, 0, tzinfo=logger.JST
+        )
+        secrets_client = MagicMock()
+        secrets_client.get_secret_value.return_value = {
+            "SecretString": (
+                '{"SWITCHBOT_TOKEN":"token","SWITCHBOT_SECRET":"secret",'
+                '"SWITCHBOT_DEVICE_ID":"device","GOOGLE_SHEET_ID":"sheet-id"}'
+            )
+        }
+        mock_boto.return_value = secrets_client
+
+        switchbot_response = MagicMock()
+        switchbot_response.json.return_value = {"body": {"temperature": 20.5}}
+        mock_get.return_value = switchbot_response
+
+        service = MagicMock()
+        values_api = service.spreadsheets.return_value.values.return_value
+        values_api.get.return_value.execute.side_effect = [
+            {"values": [["2026-04-20 09:00", 20.5, "event-123"]]},
+            {"values": [["2026-04-20"]]},
+        ]
+        values_api.update.return_value.execute.return_value = {}
+        mock_build.return_value = service
+        mock_credentials.return_value = MagicMock()
+
+        result = logger.lambda_handler({"id": "event-123"}, None)
+
+        self.assertEqual(result["statusCode"], 200)
+        self.assertEqual(json.loads(result["body"])["sample"], "duplicate")
+        values_api.append.assert_not_called()
+        values_api.update.assert_called_once()
 
 
 if __name__ == "__main__":

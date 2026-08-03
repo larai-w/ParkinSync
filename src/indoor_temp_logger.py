@@ -304,4 +304,4 @@ def lambda_handler(event, context):
 
     except Exception as error:
         print(f"Telemetry logging failed: {error}")
-        return {"statusCode": 500, "body": "Telemetry logging failed"}
+        raise
