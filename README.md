@@ -6,6 +6,32 @@ Caregiver observations written on structured paper forms are manually transcribe
 
 **Status:** In development (v1.3.0)
 
+[![CI](https://github.com/larai-w/ParkinSync/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/larai-w/ParkinSync/actions/workflows/ci.yml?query=branch%3Amain)
+[![Security baseline](https://github.com/larai-w/ParkinSync/actions/workflows/security-baseline.yml/badge.svg?branch=main)](https://github.com/larai-w/ParkinSync/actions/workflows/security-baseline.yml?query=branch%3Amain)
+
+---
+
+## Five-minute FHIR review
+
+The FHIR path is fully present on `main`; it is not a generated-artifact-only demonstration. A
+technical reviewer can follow the evidence in this order:
+
+| Review question | Direct evidence | What to verify |
+|---|---|---|
+| How are ParkinSync fields mapped without inventing clinical meaning? | [`src/fhir_export.py`](src/fhir_export.py) and the [mapping boundary](fhir/README.md) | Reviewed LOINC/UCUM mappings, explicit medication fields, synthetic-only enforcement, and fail-closed input checks |
+| Does the transaction resolve and validate? | [Generated R4 transaction Bundle](fhir/generated/bundle-synthetic-transaction-bundle.json) and [`tests/test_fhir_export.py`](tests/test_fhir_export.py) | Deterministic `fullUrl` values, matching `PUT` requests, Patient reference resolution, and independent HL7 Validator CI |
+| How is GenAI grounding enforced? | [`src/fhir_summary.py`](src/fhir_summary.py), [fact bundle](fhir/summary/generated/fact-bundle.json), and [offline summary](fhir/summary/generated/offline-summary.json) | Stable fact IDs, value-level FHIRPath provenance, exact-number checks, mandatory citations, and human review |
+| What happens with adversarial or incomplete input? | [`tests/test_fhir_summary.py`](tests/test_fhir_summary.py) and [evaluation cases](fhir/summary/evaluation-cases.json) | Rejection of changed numbers, uncited claims, omitted `not-taken` medication, conflicting timestamps, clinical advice, and prompt-injection text |
+| Is the evidence reproducible and continuously checked? | [CI workflow](.github/workflows/ci.yml), [latest main CI](https://github.com/larai-w/ParkinSync/actions/workflows/ci.yml?query=branch%3Amain), and [latest security baseline](https://github.com/larai-w/ParkinSync/actions/workflows/security-baseline.yml?query=branch%3Amain) | Deterministic regeneration, public-artifact policy, full test suite, HL7 Validator CLI, secret scan, and dependency audit |
+
+The fixture year **2035 is intentional**: a conspicuous future date, synthetic IDs, and
+`meta.tag=synthetic` reduce the risk that demonstration records are mistaken for current participant
+data. It is not a forecast or a real care period.
+
+**Evidence boundary:** this proves a synthetic, offline base FHIR R4 transaction and grounded-summary
+software path. It does not claim terminology-server, NZ Base, NZ Patient Summary, clinical, medical-
+device, treatment, or regulatory conformance, and it does not send records to a FHIR server.
+
 ---
 
 ## Why this exists
@@ -152,6 +178,7 @@ tests/test_fhir_export.py           — FHIR R4 mapping, safety, reference, and
                                       reproducibility checks
 tests/test_fhir_summary.py          — grounded fact provenance, data quality,
                                       adversarial claims, and summary gating
+tests/test_readme_links.py          — reviewer-path and repository-relative link checks
 ```
 
 Run tests: `PYTHONPATH=src python -m unittest discover -s tests -v` (requires
