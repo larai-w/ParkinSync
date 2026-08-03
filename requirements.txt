@@ -13,6 +13,7 @@ pandas
 # Google APIs Client & OAuth Security Framework for Master Sheets
 google-api-python-client
 google-auth
+google-auth-httplib2
 
 # =========================================================
 # Analytics Layer (Amazon SageMaker Integration & Modeling)

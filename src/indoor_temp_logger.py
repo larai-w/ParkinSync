@@ -8,6 +8,8 @@ import os
 import time
 
 import boto3
+import google_auth_httplib2
+import httplib2
 import requests
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
@@ -18,6 +20,7 @@ REGION_NAME = os.environ.get("SECRETS_REGION", "us-east-1")
 TEMP_HISTORY_SHEET = os.environ.get("TEMP_HISTORY_SHEET", "TempHistory")
 MASTER_SHEET = os.environ.get("MASTER_SHEET", "Sheet1")
 JST = datetime.timezone(datetime.timedelta(hours=9))
+SHEETS_HTTP_TIMEOUT = int(os.environ.get("SHEETS_HTTP_TIMEOUT", "8"))
 
 
 def _sheet_ref(sheet_name):
@@ -172,6 +175,7 @@ def sync_daily_aggregate(service, spreadsheet_id, telemetry_rows, target_date):
         spreadsheetId=spreadsheet_id,
         range=f"{_sheet_ref(MASTER_SHEET)}!B2:B",
         valueRenderOption="FORMATTED_VALUE",
+        fields="values",
     ).execute()
     matches = _master_row_numbers(date_response.get("values", []), target_date)
 
@@ -246,13 +250,25 @@ def lambda_handler(event, context):
             secrets,
             scopes=["https://www.googleapis.com/auth/spreadsheets"],
         )
-        service = build("sheets", "v4", credentials=creds)
+        sheets_http = google_auth_httplib2.AuthorizedHttp(
+            creds,
+            http=httplib2.Http(timeout=SHEETS_HTTP_TIMEOUT),
+        )
+        service = build(
+            "sheets",
+            "v4",
+            credentials=creds,
+            http=sheets_http,
+            cache_discovery=False,
+            num_retries=0,
+        )
         values_api = service.spreadsheets().values()
 
         history_response = values_api.get(
             spreadsheetId=spreadsheet_id,
             range=f"{_sheet_ref(TEMP_HISTORY_SHEET)}!A:C",
             valueRenderOption="FORMATTED_VALUE",
+            fields="values",
         ).execute()
         telemetry_rows = list(history_response.get("values", []))
 
