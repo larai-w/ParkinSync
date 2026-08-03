@@ -1,0 +1,77 @@
+# ParkinSync FHIR R4 interoperability demo
+
+This directory demonstrates an offline adapter from an explicit, synthetic ParkinSync normalized
+record to HL7 FHIR R4.0.1. It generates six resource instances across four resource types:
+`Patient`, `MedicationStatement`, `Observation`, and `CarePlan`.
+
+The demo is a software interoperability artifact, not a clinical record, medical device, or claim of
+conformance with a national implementation guide. It does not transmit data to a FHIR server.
+
+## Why the adapter uses an explicit normalized record
+
+The current 25-column ParkinSync ledger contains medication windows and caregiver observations, but it
+does not contain every semantic field required for a faithful FHIR mapping. In particular, a time in
+`Morning` does not establish the medication identity, dose, or whether a scheduled dose was taken.
+`Switchbot_Avg` is ambient room temperature, not body temperature.
+
+The v1 adapter therefore refuses to infer those facts. The public input fixture supplies the missing
+fields explicitly and remains separate from participant or production data. A future production
+adapter would require an approved source contract, consent and access controls, and jurisdiction-
+specific profile review.
+
+## Pipeline
+
+```text
+synthetic_normalized_record.json
+  -> src/fhir_export.py
+  -> fhir.resources 6.4.0 (FHIR 4.0.1 models)
+  -> deterministic JSON resources + manifest
+  -> model, reference, provenance, and reproducibility tests
+```
+
+## Mapping
+
+| Normalized input | FHIR R4 target | Coding or rule |
+|---|---|---|
+| `classification=synthetic` | `meta.tag` on every resource | Local data-classification code system; input is rejected otherwise |
+| `patient.id` | `Patient.id` and every `subject.reference` | Deterministic ID prefixed `synthetic-` |
+| `patient.identifier` | `Patient.identifier` | Temporary identifier in the demo-only VEAI identifier system |
+| `medications[].name` | `MedicationStatement.medicationCodeableConcept.text` | Text only; no RxNorm code is invented |
+| `medications[].taken` | `MedicationStatement.status` | `true` -> `completed`; `false` -> `not-taken` |
+| `medications[].dose` | `MedicationStatement.dosage.doseAndRate.doseQuantity` | Explicit value and UCUM unit from input |
+| `recorded_date` + `scheduled_time` + `timezone` | `effectiveDateTime`, `dateAsserted`, `dosage.timing.event` | ISO 8601 timestamp with UTC offset |
+| `observations[kind=body-temperature]` | `Observation` | LOINC `8310-5`; UCUM `Cel` |
+| `observations[kind=heart-rate]` | `Observation` | LOINC `8867-4`; UCUM `/min` |
+| `care_plan.*` | `CarePlan` status, intent, title, description, period, activity | Explicit synthetic plan fields; no diagnosis or treatment recommendation |
+
+LOINC codes are limited to the reviewed mappings above. Unsupported observation kinds fail instead of
+falling back to a guessed code. The source references are the official
+[FHIR R4 resource definitions](https://hl7.org/fhir/R4/resourcelist.html),
+[LOINC 8310-5](https://loinc.org/8310-5/), and
+[LOINC 8867-4](https://loinc.org/8867-4/).
+
+## Current 25-column gaps
+
+| Existing ParkinSync field | v1 decision |
+|---|---|
+| `Morning`, `Lunch`, `Evening`, `Bedtime`, `Bedtime_2` | Not converted without explicit medication identity, dose, and taken/not-taken state |
+| `Bowel`, `Movi`, `Condition_C`, `Condition_Num`, event flags | Not assigned a LOINC or SNOMED CT code until the concept definitions and terminology mapping are reviewed |
+| `Daily_Notes` | Not exported; free text can carry identifying or unsupported clinical content |
+| Weather and `Switchbot_*` | Not represented as patient vital signs; they are environmental context |
+| Patient and care-plan fields | Absent from the ledger; supplied only by the synthetic demo contract |
+
+## Run and validate
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt -r requirements-fhir.txt
+
+python scripts/export_synthetic_fhir.py --check
+PYTHONPATH=src python -m unittest tests.test_fhir_export -v
+```
+
+`fhir.resources` validates FHIR R4 model structure, data types, cardinalities implemented by the model,
+and required fields. ParkinSync additionally checks resource IDs, required resource types, synthetic
+classification, and local Patient references. This is not full terminology-server validation, HAPI
+Validator validation, national-profile validation, clinical review, or regulatory certification.

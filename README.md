@@ -108,7 +108,9 @@ Caregiver paper log
                    U:X only when one matching master row exists
 
 Master ledger (Google Sheets, 25-column schema)
-  └─ Amazon SageMaker  (exploratory Pearson r and lag analyses)
+  ├─ Amazon SageMaker  (exploratory Pearson r and lag analyses)
+  └─ Offline FHIR R4 adapter (synthetic demo only)
+       └─ Patient / MedicationStatement / Observation / CarePlan JSON
 
 Secrets: AWS Secrets Manager (Google SA JSON, SwitchBot key, Weather API key)
 IaC: deploy.sh (bash) — packages Lambda zips and calls aws lambda update-function-code
@@ -130,6 +132,7 @@ The OCR step is Human-in-the-Loop: Textract validates form structure but does no
 | IoT polling | SwitchBot Open API |
 | Weather enrichment | Visual Crossing Weather API |
 | Analytics | Amazon SageMaker, Python Pandas / NumPy / SciPy |
+| Interoperability demo | HL7 FHIR R4.0.1, `fhir.resources` / Pydantic |
 | Deploy | `deploy.sh` (bash, `aws lambda update-function-code`) |
 
 ---
@@ -144,9 +147,12 @@ tests/test_indoor_temp_logger.py    — 11 synthetic telemetry cases covering da
                                       missing/duplicate master dates, dependency
                                       failure propagation, and mocked Sheets sync
 analytics/pd_correlation_analysis.py — synthetic-fixture schema and EDA audit
+tests/test_fhir_export.py           — FHIR R4 mapping, safety, reference, and
+                                      reproducibility checks
 ```
 
-Run tests: `PYTHONPATH=src python -m unittest discover -s tests -v` (requires `pip install -r requirements.txt`)
+Run tests: `PYTHONPATH=src python -m unittest discover -s tests -v` (requires
+`pip install -r requirements.txt -r requirements-fhir.txt`)
 
 ---
 
@@ -156,7 +162,7 @@ Run tests: `PYTHONPATH=src python -m unittest discover -s tests -v` (requires `p
 # Python environment
 python3 -m venv .venv
 source .venv/bin/activate
-pip install -r requirements.txt
+pip install -r requirements.txt -r requirements-fhir.txt
 
 # Unit tests
 PYTHONPATH=src python -m unittest discover -s tests -v
@@ -166,6 +172,7 @@ python analytics/pd_correlation_analysis.py
 
 # Confirm generated public artifacts are reproducible
 python scripts/generate_synthetic_fixture.py --check
+python scripts/export_synthetic_fhir.py --check
 
 # Deploy only the indoor telemetry Lambda; OCR remains behind its release guard
 DEPLOY_TARGET=iot AWS_REGION=us-east-1 bash deploy.sh
@@ -182,9 +189,12 @@ DRY_RUN=1 DEPLOY_TARGET=iot bash deploy.sh
 src/
   ParkinSync_OCR_Handler.py    # Event-driven Lambda: OCR + weather enrichment
   indoor_temp_logger.py        # Schedule-driven Lambda: SwitchBot telemetry
+  fhir_export.py               # Synthetic normalized record -> FHIR R4 adapter
 tests/
   test_lambda_function.py      # OCR and weather unittest suite
   test_indoor_temp_logger.py   # Synthetic daily-aggregation unittest suite
+  test_fhir_export.py          # FHIR model, mapping, and reproducibility tests
+fhir/                          # Synthetic input, mapping notes, generated FHIR JSON
 analytics/
   pd_correlation_analysis.py   # EDA / schema audit script
   synthetic_sample_data_v1.3.csv # Deterministic fixture; not clinical evidence

@@ -1,0 +1,21 @@
+{
+  "classification": "synthetic",
+  "fhir_release": "4.0.1",
+  "files": [
+    "careplan-synthetic-daily-observation-plan.json",
+    "medicationstatement-synthetic-medication-lunch.json",
+    "medicationstatement-synthetic-medication-morning.json",
+    "observation-synthetic-body-temperature.json",
+    "observation-synthetic-heart-rate.json",
+    "patient-synthetic-patient-001.json"
+  ],
+  "generator": "scripts/export_synthetic_fhir.py",
+  "resource_count": 6,
+  "resource_types": [
+    "CarePlan",
+    "MedicationStatement",
+    "Observation",
+    "Patient"
+  ],
+  "validation_scope": "fhir.resources model validation plus deterministic IDs and local Patient references; not terminology-server, implementation-guide, clinical, or regulatory validation"
+}

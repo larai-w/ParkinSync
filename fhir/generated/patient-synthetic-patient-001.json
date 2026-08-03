@@ -1,0 +1,21 @@
+{
+  "active": true,
+  "id": "synthetic-patient-001",
+  "identifier": [
+    {
+      "system": "https://veai.jp/fhir/synthetic-patient",
+      "use": "temp",
+      "value": "SYNTHETIC-001"
+    }
+  ],
+  "meta": {
+    "tag": [
+      {
+        "code": "synthetic",
+        "display": "Synthetic data",
+        "system": "https://veai.jp/fhir/CodeSystem/data-classification"
+      }
+    ]
+  },
+  "resourceType": "Patient"
+}

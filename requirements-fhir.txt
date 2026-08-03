@@ -1,0 +1,3 @@
+# fhir.resources 6.4.0 is the last release in this package line that models FHIR R4.0.1.
+fhir.resources==6.4.0
+pydantic[email]==1.10.26

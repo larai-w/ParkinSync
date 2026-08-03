@@ -20,6 +20,9 @@ FORBIDDEN_PATHS = {
 SYNTHETIC_FIXTURE_PATH = Path("analytics/synthetic_sample_data_v1.3.csv")
 SYNTHETIC_MANIFEST_PATH = Path("analytics/synthetic_fixture_manifest.json")
 SCHEMA_PATH = Path("design/master_schema_template.csv")
+FHIR_INPUT_PATH = Path("fhir/synthetic_normalized_record.json")
+FHIR_OUTPUT_DIR = Path("fhir/generated")
+FHIR_MANIFEST_PATH = FHIR_OUTPUT_DIR / "manifest.json"
 
 REVIEW_REQUIRED_SUFFIXES = {
     ".pages",
@@ -117,6 +120,56 @@ def validate_synthetic_fixture() -> list[str]:
     return failures
 
 
+def validate_synthetic_fhir_artifacts() -> list[str]:
+    failures: list[str] = []
+    try:
+        source = json.loads(FHIR_INPUT_PATH.read_text(encoding="utf-8"))
+        manifest = json.loads(FHIR_MANIFEST_PATH.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError) as error:
+        return [f"cannot validate synthetic FHIR artifacts: {error}"]
+
+    if source.get("classification") != "synthetic":
+        failures.append("FHIR source fixture must be classified as synthetic")
+    if not source.get("patient", {}).get("id", "").startswith("synthetic-"):
+        failures.append("FHIR source Patient id must use the synthetic prefix")
+    if manifest.get("classification") != "synthetic":
+        failures.append("FHIR manifest must be classified as synthetic")
+    if manifest.get("fhir_release") != "4.0.1":
+        failures.append("FHIR manifest must declare release 4.0.1")
+
+    expected_names = manifest.get("files")
+    if not isinstance(expected_names, list):
+        failures.append("FHIR manifest files must be an array")
+        expected_names = []
+    actual_paths = sorted(
+        path for path in FHIR_OUTPUT_DIR.glob("*.json") if path.name != "manifest.json"
+    )
+    if [path.name for path in actual_paths] != sorted(expected_names):
+        failures.append("FHIR manifest file list does not match generated resources")
+    if manifest.get("resource_count") != len(actual_paths):
+        failures.append("FHIR manifest resource count does not match generated resources")
+
+    found_types: set[str] = set()
+    for path in actual_paths:
+        try:
+            resource = json.loads(path.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError) as error:
+            failures.append(f"cannot parse {path.as_posix()}: {error}")
+            continue
+        resource_type = resource.get("resourceType")
+        found_types.add(resource_type)
+        if not resource.get("id", "").startswith("synthetic-"):
+            failures.append(f"FHIR resource lacks synthetic id: {path.as_posix()}")
+        tags = resource.get("meta", {}).get("tag", [])
+        if not any(tag.get("code") == "synthetic" for tag in tags):
+            failures.append(f"FHIR resource lacks synthetic classification: {path.as_posix()}")
+
+    required_types = {"Patient", "MedicationStatement", "Observation", "CarePlan"}
+    if found_types != required_types:
+        failures.append("FHIR artifacts must contain exactly the four required resource types")
+    return failures
+
+
 def main() -> int:
     failures: list[str] = []
     tracked_or_untracked = set(candidate_files())
@@ -148,6 +201,8 @@ def main() -> int:
 
     if SYNTHETIC_FIXTURE_PATH in tracked_or_untracked:
         failures.extend(validate_synthetic_fixture())
+    if FHIR_INPUT_PATH in tracked_or_untracked:
+        failures.extend(validate_synthetic_fhir_artifacts())
 
     if failures:
         print("Public artifact check failed:", file=sys.stderr)

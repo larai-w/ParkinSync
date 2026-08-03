@@ -1,0 +1,45 @@
+{
+  "category": [
+    {
+      "coding": [
+        {
+          "code": "vital-signs",
+          "display": "Vital Signs",
+          "system": "http://terminology.hl7.org/CodeSystem/observation-category"
+        }
+      ]
+    }
+  ],
+  "code": {
+    "coding": [
+      {
+        "code": "8310-5",
+        "display": "Body temperature",
+        "system": "http://loinc.org"
+      }
+    ],
+    "text": "Body temperature"
+  },
+  "effectiveDateTime": "2035-01-01T08:00:00+09:00",
+  "id": "synthetic-body-temperature",
+  "meta": {
+    "tag": [
+      {
+        "code": "synthetic",
+        "display": "Synthetic data",
+        "system": "https://veai.jp/fhir/CodeSystem/data-classification"
+      }
+    ]
+  },
+  "resourceType": "Observation",
+  "status": "final",
+  "subject": {
+    "reference": "Patient/synthetic-patient-001"
+  },
+  "valueQuantity": {
+    "code": "Cel",
+    "system": "http://unitsofmeasure.org",
+    "unit": "degrees Celsius",
+    "value": 36.6
+  }
+}

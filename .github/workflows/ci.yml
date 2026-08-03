@@ -26,13 +26,16 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          pip install -r requirements.txt -r requirements-fhir.txt
 
       - name: Byte-compile Lambda sources
         run: python -m compileall src
 
       - name: Check public artifacts
         run: python scripts/check_public_artifacts.py
+
+      - name: Check deterministic FHIR R4 artifacts
+        run: python scripts/export_synthetic_fhir.py --check
 
       - name: Run unit tests
         run: python -m unittest discover -s tests -v

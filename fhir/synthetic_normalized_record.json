@@ -1,0 +1,58 @@
+{
+  "care_plan": {
+    "activity": "Record scheduled medicine statements and reviewed vital signs.",
+    "description": "A synthetic plan for demonstrating standards-based care-log exchange.",
+    "end": "2035-01-07",
+    "id": "synthetic-daily-observation-plan",
+    "intent": "plan",
+    "start": "2035-01-01",
+    "status": "active",
+    "title": "Synthetic daily observation plan"
+  },
+  "classification": "synthetic",
+  "medications": [
+    {
+      "dose": {
+        "ucum_code": "mg",
+        "unit": "mg",
+        "value": 100
+      },
+      "id": "synthetic-medication-morning",
+      "name": "Synthetic demonstration medicine A",
+      "scheduled_time": "07:00",
+      "taken": true
+    },
+    {
+      "dose": {
+        "ucum_code": "mg",
+        "unit": "mg",
+        "value": 100
+      },
+      "id": "synthetic-medication-lunch",
+      "name": "Synthetic demonstration medicine A",
+      "scheduled_time": "12:00",
+      "taken": false
+    }
+  ],
+  "observations": [
+    {
+      "effective_time": "08:00",
+      "id": "synthetic-body-temperature",
+      "kind": "body-temperature",
+      "value": 36.6
+    },
+    {
+      "effective_time": "08:00",
+      "id": "synthetic-heart-rate",
+      "kind": "heart-rate",
+      "value": 68
+    }
+  ],
+  "patient": {
+    "id": "synthetic-patient-001",
+    "identifier": "SYNTHETIC-001"
+  },
+  "recorded_date": "2035-01-01",
+  "schema_version": "parkinsync-fhir-demo-v1",
+  "timezone": "+09:00"
+}

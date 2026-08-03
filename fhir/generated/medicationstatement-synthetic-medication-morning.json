@@ -1,0 +1,42 @@
+{
+  "dateAsserted": "2035-01-01T07:00:00+09:00",
+  "dosage": [
+    {
+      "doseAndRate": [
+        {
+          "doseQuantity": {
+            "code": "mg",
+            "system": "http://unitsofmeasure.org",
+            "unit": "mg",
+            "value": 100
+          }
+        }
+      ],
+      "text": "100 mg at 07:00",
+      "timing": {
+        "event": [
+          "2035-01-01T07:00:00+09:00"
+        ]
+      }
+    }
+  ],
+  "effectiveDateTime": "2035-01-01T07:00:00+09:00",
+  "id": "synthetic-medication-morning",
+  "medicationCodeableConcept": {
+    "text": "Synthetic demonstration medicine A"
+  },
+  "meta": {
+    "tag": [
+      {
+        "code": "synthetic",
+        "display": "Synthetic data",
+        "system": "https://veai.jp/fhir/CodeSystem/data-classification"
+      }
+    ]
+  },
+  "resourceType": "MedicationStatement",
+  "status": "completed",
+  "subject": {
+    "reference": "Patient/synthetic-patient-001"
+  }
+}

@@ -1,0 +1,32 @@
+{
+  "activity": [
+    {
+      "detail": {
+        "description": "Record scheduled medicine statements and reviewed vital signs.",
+        "status": "scheduled"
+      }
+    }
+  ],
+  "description": "A synthetic plan for demonstrating standards-based care-log exchange.",
+  "id": "synthetic-daily-observation-plan",
+  "intent": "plan",
+  "meta": {
+    "tag": [
+      {
+        "code": "synthetic",
+        "display": "Synthetic data",
+        "system": "https://veai.jp/fhir/CodeSystem/data-classification"
+      }
+    ]
+  },
+  "period": {
+    "end": "2035-01-07",
+    "start": "2035-01-01"
+  },
+  "resourceType": "CarePlan",
+  "status": "active",
+  "subject": {
+    "reference": "Patient/synthetic-patient-001"
+  },
+  "title": "Synthetic daily observation plan"
+}

@@ -9,6 +9,9 @@ __pycache__/
 !product.json
 # Public synthetic-fixture provenance is intentionally reviewed and tracked.
 !analytics/synthetic_fixture_manifest.json
+# Reviewed deterministic FHIR demo inputs and outputs are synthetic public artifacts.
+!fhir/*.json
+!fhir/generated/*.json
 .env
 secret_key.txt
 
