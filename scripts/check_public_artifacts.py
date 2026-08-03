@@ -146,11 +146,19 @@ def validate_synthetic_fhir_artifacts() -> list[str]:
     )
     if [path.name for path in actual_paths] != sorted(expected_names):
         failures.append("FHIR manifest file list does not match generated resources")
-    if manifest.get("resource_count") != len(actual_paths):
+    if manifest.get("artifact_count") != len(actual_paths):
+        failures.append("FHIR manifest artifact count does not match generated artifacts")
+
+    resource_names = manifest.get("resource_files")
+    if not isinstance(resource_names, list):
+        failures.append("FHIR manifest resource_files must be an array")
+        resource_names = []
+    resource_paths = [FHIR_OUTPUT_DIR / name for name in resource_names]
+    if manifest.get("resource_count") != len(resource_paths):
         failures.append("FHIR manifest resource count does not match generated resources")
 
     found_types: set[str] = set()
-    for path in actual_paths:
+    for path in resource_paths:
         try:
             resource = json.loads(path.read_text(encoding="utf-8"))
         except (json.JSONDecodeError, OSError) as error:
@@ -167,6 +175,41 @@ def validate_synthetic_fhir_artifacts() -> list[str]:
     required_types = {"Patient", "MedicationStatement", "Observation", "CarePlan"}
     if found_types != required_types:
         failures.append("FHIR artifacts must contain exactly the four required resource types")
+
+    bundle_name = manifest.get("bundle_file")
+    if not isinstance(bundle_name, str) or not bundle_name:
+        failures.append("FHIR manifest must identify one transaction Bundle")
+        return failures
+    try:
+        bundle = json.loads((FHIR_OUTPUT_DIR / bundle_name).read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError) as error:
+        failures.append(f"cannot parse FHIR transaction Bundle: {error}")
+        return failures
+    if bundle.get("resourceType") != "Bundle" or bundle.get("type") != "transaction":
+        failures.append("FHIR Bundle artifact must be a transaction Bundle")
+    if not bundle.get("id", "").startswith("synthetic-"):
+        failures.append("FHIR Bundle must use a synthetic id")
+    bundle_tags = bundle.get("meta", {}).get("tag", [])
+    if not any(tag.get("code") == "synthetic" for tag in bundle_tags):
+        failures.append("FHIR Bundle must carry the synthetic classification")
+    entries = bundle.get("entry", [])
+    if len(entries) != manifest.get("resource_count"):
+        failures.append("FHIR Bundle entry count does not match resource count")
+    full_urls = [entry.get("fullUrl") for entry in entries]
+    if len(full_urls) != len(set(full_urls)) or any(
+        not isinstance(full_url, str) or not full_url.startswith("urn:uuid:")
+        for full_url in full_urls
+    ):
+        failures.append("FHIR Bundle fullUrls must be unique urn:uuid values")
+    for entry in entries:
+        resource = entry.get("resource", {})
+        expected_url = f"{resource.get('resourceType')}/{resource.get('id')}"
+        request = entry.get("request", {})
+        if request.get("method") != "PUT" or request.get("url") != expected_url:
+            failures.append(f"FHIR Bundle request does not match {expected_url}")
+        reference = resource.get("subject", {}).get("reference")
+        if reference and reference not in full_urls:
+            failures.append(f"FHIR Bundle has an unresolved subject reference: {reference}")
     return failures
 
 

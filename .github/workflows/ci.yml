@@ -15,6 +15,9 @@ jobs:
       AWS_SECRET_ACCESS_KEY: testing
       AWS_DEFAULT_REGION: us-east-1
       PYTHONPATH: src
+      FHIR_VALIDATOR_JAR: ${{ github.workspace }}/.cache/fhir-validator/validator_cli-6.10.0.jar
+      FHIR_VALIDATOR_SHA256: fc663ae55dd31bbfde19788dddfb49cacbeebc3c64498fa7b7779df90000434b
+      FHIR_VALIDATOR_VERSION: 6.10.0
     steps:
       - uses: actions/checkout@v4
 
@@ -22,6 +25,29 @@ jobs:
         with:
           python-version: '3.12'
           cache: pip
+
+      - name: Set up Java for HL7 Validator CLI
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Cache HL7 Validator CLI and FHIR packages
+        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
+        with:
+          path: |
+            .cache/fhir-validator
+            ~/.fhir/packages
+          key: fhir-validator-${{ runner.os }}-6.10.0-r4-4.0.1
+
+      - name: Install pinned HL7 Validator CLI
+        run: |
+          mkdir -p "$(dirname "$FHIR_VALIDATOR_JAR")"
+          if [ ! -f "$FHIR_VALIDATOR_JAR" ]; then
+            curl --fail --location --retry 3 --output "$FHIR_VALIDATOR_JAR" \
+              "https://github.com/hapifhir/org.hl7.fhir.core/releases/download/${FHIR_VALIDATOR_VERSION}/validator_cli.jar"
+          fi
+          echo "$FHIR_VALIDATOR_SHA256  $FHIR_VALIDATOR_JAR" | sha256sum --check --strict
 
       - name: Install dependencies
         run: |
@@ -36,6 +62,9 @@ jobs:
 
       - name: Check deterministic FHIR R4 artifacts
         run: python scripts/export_synthetic_fhir.py --check
+
+      - name: Validate generated artifacts with HL7 Validator CLI
+        run: scripts/validate_fhir_r4.sh
 
       - name: Run unit tests
         run: python -m unittest discover -s tests -v

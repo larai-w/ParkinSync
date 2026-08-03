@@ -1,8 +1,9 @@
 # ParkinSync FHIR R4 interoperability demo
 
 This directory demonstrates an offline adapter from an explicit, synthetic ParkinSync normalized
-record to HL7 FHIR R4.0.1. It generates six resource instances across four resource types:
-`Patient`, `MedicationStatement`, `Observation`, and `CarePlan`.
+record to HL7 FHIR R4.0.1. It generates six resource instances across four resource types,
+`Patient`, `MedicationStatement`, `Observation`, and `CarePlan`, plus a deterministic transaction
+`Bundle` containing those resources.
 
 The demo is a software interoperability artifact, not a clinical record, medical device, or claim of
 conformance with a national implementation guide. It does not transmit data to a FHIR server.
@@ -25,8 +26,9 @@ specific profile review.
 synthetic_normalized_record.json
   -> src/fhir_export.py
   -> fhir.resources 6.4.0 (FHIR 4.0.1 models)
-  -> deterministic JSON resources + manifest
-  -> model, reference, provenance, and reproducibility tests
+  -> deterministic JSON resources + transaction Bundle + manifest
+  -> model, transaction, reference, provenance, and reproducibility tests
+  -> HL7 Validator CLI 6.10.0 (offline terminology mode in CI)
 ```
 
 ## Mapping
@@ -43,6 +45,19 @@ synthetic_normalized_record.json
 | `observations[kind=body-temperature]` | `Observation` | LOINC `8310-5`; UCUM `Cel` |
 | `observations[kind=heart-rate]` | `Observation` | LOINC `8867-4`; UCUM `/min` |
 | `care_plan.*` | `CarePlan` status, intent, title, description, period, activity | Explicit synthetic plan fields; no diagnosis or treatment recommendation |
+
+## Transaction Bundle
+
+The generated Bundle has `type=transaction`. Every entry contains:
+
+- a deterministic and unique `urn:uuid` `fullUrl`;
+- the complete synthetic resource;
+- a `PUT` request whose URL exactly matches `ResourceType/id`; and
+- internal Patient references rewritten to the Patient entry's `fullUrl`.
+
+The adapter checks fullUrl uniqueness, request/resource identity, and reference resolution before
+serialization. It does not POST the Bundle or assume that a target server will accept client-assigned
+logical IDs.
 
 LOINC codes are limited to the reviewed mappings above. Unsupported observation kinds fail instead of
 falling back to a guessed code. The source references are the official
@@ -69,9 +84,20 @@ pip install -r requirements.txt -r requirements-fhir.txt
 
 python scripts/export_synthetic_fhir.py --check
 PYTHONPATH=src python -m unittest tests.test_fhir_export -v
+
+# Requires Java 17+ and a separately downloaded pinned validator_cli.jar.
+FHIR_VALIDATOR_JAR=/path/to/validator_cli.jar scripts/validate_fhir_r4.sh
 ```
 
 `fhir.resources` validates FHIR R4 model structure, data types, cardinalities implemented by the model,
 and required fields. ParkinSync additionally checks resource IDs, required resource types, synthetic
-classification, and local Patient references. This is not full terminology-server validation, HAPI
-Validator validation, national-profile validation, clinical review, or regulatory certification.
+classification, and transaction references. CI also runs HL7 Validator CLI `6.10.0`, whose JAR is
+downloaded from the versioned official release and checked against a pinned SHA-256 digest. The
+validator runs with `-tx n/a`, so the gate covers base R4 parsing, structure, and FHIRPath invariants
+without relying on a public terminology server.
+
+This is not terminology-server validation, NZ Base or NZ Patient Summary profile conformance,
+clinical review, or regulatory certification. NZPS is a document Bundle built around a Composition,
+whereas this demo intentionally produces an API transaction Bundle. Adding NZ identifiers, NZ Base
+profiles, a suitable shared-care or patient-summary use case, and the applicable Health NZ package is
+a separate design and governance decision.

@@ -110,7 +110,7 @@ Caregiver paper log
 Master ledger (Google Sheets, 25-column schema)
   ├─ Amazon SageMaker  (exploratory Pearson r and lag analyses)
   └─ Offline FHIR R4 adapter (synthetic demo only)
-       └─ Patient / MedicationStatement / Observation / CarePlan JSON
+       └─ Patient / MedicationStatement / Observation / CarePlan transaction Bundle
 
 Secrets: AWS Secrets Manager (Google SA JSON, SwitchBot key, Weather API key)
 IaC: deploy.sh (bash) — packages Lambda zips and calls aws lambda update-function-code

@@ -3,11 +3,14 @@
 from __future__ import annotations
 
 import json
+from copy import deepcopy
 from datetime import date, datetime
 from pathlib import Path
 from typing import Any
+from uuid import NAMESPACE_URL, uuid5
 
 from fhir.resources import __fhir_version__
+from fhir.resources.bundle import Bundle
 from fhir.resources.careplan import CarePlan
 from fhir.resources.medicationstatement import MedicationStatement
 from fhir.resources.observation import Observation
@@ -16,6 +19,8 @@ from fhir.resources.patient import Patient
 
 FHIR_VERSION = "4.0.1"
 INPUT_SCHEMA_VERSION = "parkinsync-fhir-demo-v1"
+BUNDLE_ID = "synthetic-transaction-bundle"
+BUNDLE_FILE = f"bundle-{BUNDLE_ID}.json"
 CLASSIFICATION_SYSTEM = "https://veai.jp/fhir/CodeSystem/data-classification"
 PATIENT_IDENTIFIER_SYSTEM = "https://veai.jp/fhir/synthetic-patient"
 UCUM_SYSTEM = "http://unitsofmeasure.org"
@@ -352,6 +357,108 @@ def validate_collection(resources: list[Any]) -> None:
         raise ValueError(f"unresolved Patient reference(s): {', '.join(unresolved)}")
 
 
+def _entry_full_url(resource_type: str, resource_id: str) -> str:
+    identity = f"https://veai.jp/fhir/{resource_type}/{resource_id}"
+    return f"urn:uuid:{uuid5(NAMESPACE_URL, identity)}"
+
+
+def _rewrite_local_references(value: Any, full_urls: dict[str, str]) -> Any:
+    if isinstance(value, list):
+        return [_rewrite_local_references(item, full_urls) for item in value]
+    if not isinstance(value, dict):
+        return value
+    rewritten = {
+        key: _rewrite_local_references(item, full_urls) for key, item in value.items()
+    }
+    reference = rewritten.get("reference")
+    if isinstance(reference, str) and reference in full_urls:
+        rewritten["reference"] = full_urls[reference]
+    return rewritten
+
+
+def _collect_references(value: Any) -> list[str]:
+    if isinstance(value, list):
+        return [reference for item in value for reference in _collect_references(item)]
+    if not isinstance(value, dict):
+        return []
+    references = []
+    if isinstance(value.get("reference"), str):
+        references.append(value["reference"])
+    for item in value.values():
+        references.extend(_collect_references(item))
+    return references
+
+
+def build_transaction_bundle(resources: list[Any]) -> Bundle:
+    """Build a deterministic PUT transaction with resolvable urn:uuid references."""
+    validate_collection(resources)
+    payloads = [
+        json.loads(resource.json(exclude_none=True, by_alias=True)) for resource in resources
+    ]
+    full_urls = {
+        f"{payload['resourceType']}/{payload['id']}": _entry_full_url(
+            payload["resourceType"], payload["id"]
+        )
+        for payload in payloads
+    }
+    entries = []
+    for payload in payloads:
+        identity = f"{payload['resourceType']}/{payload['id']}"
+        entries.append(
+            {
+                "fullUrl": full_urls[identity],
+                "resource": _rewrite_local_references(deepcopy(payload), full_urls),
+                "request": {"method": "PUT", "url": identity},
+            }
+        )
+
+    bundle = Bundle.parse_obj(
+        {
+            "resourceType": "Bundle",
+            "id": BUNDLE_ID,
+            "meta": _synthetic_meta(),
+            "type": "transaction",
+            "entry": entries,
+        }
+    )
+    validate_transaction_bundle(bundle)
+    return bundle
+
+
+def validate_transaction_bundle(bundle: Bundle) -> None:
+    """Enforce transaction request, identity, and internal-reference invariants."""
+    payload = json.loads(bundle.json(exclude_none=True, by_alias=True))
+    if payload.get("type") != "transaction":
+        raise ValueError("FHIR Bundle must have type transaction")
+    entries = payload.get("entry")
+    if not isinstance(entries, list) or not entries:
+        raise ValueError("FHIR transaction Bundle must contain entries")
+
+    full_urls = [entry.get("fullUrl") for entry in entries]
+    if any(not isinstance(full_url, str) or not full_url.startswith("urn:uuid:") for full_url in full_urls):
+        raise ValueError("every transaction entry must have a urn:uuid fullUrl")
+    if len(full_urls) != len(set(full_urls)):
+        raise ValueError("transaction entry fullUrls must be unique")
+
+    for entry in entries:
+        resource = entry.get("resource", {})
+        identity = f"{resource.get('resourceType')}/{resource.get('id')}"
+        request = entry.get("request", {})
+        if request.get("method") != "PUT" or request.get("url") != identity:
+            raise ValueError(f"transaction request does not match resource identity: {identity}")
+
+    unresolved = sorted(
+        {
+            reference
+            for entry in entries
+            for reference in _collect_references(entry.get("resource", {}))
+            if reference.startswith("urn:uuid:") and reference not in set(full_urls)
+        }
+    )
+    if unresolved:
+        raise ValueError(f"unresolved transaction reference(s): {', '.join(unresolved)}")
+
+
 def serialize_resource(resource: Any) -> str:
     payload = json.loads(resource.json(exclude_none=True, by_alias=True))
     return json.dumps(payload, indent=2, sort_keys=True) + "\n"
@@ -364,17 +471,26 @@ def output_name(resource: Any) -> str:
 
 def render_outputs(record: dict[str, Any]) -> dict[str, str]:
     resources = build_resources(record)
-    outputs = {output_name(resource): serialize_resource(resource) for resource in resources}
+    resource_outputs = {
+        output_name(resource): serialize_resource(resource) for resource in resources
+    }
+    bundle = build_transaction_bundle(resources)
+    outputs = dict(resource_outputs)
+    outputs[BUNDLE_FILE] = serialize_resource(bundle)
     manifest = {
+        "artifact_count": len(outputs),
+        "bundle_file": BUNDLE_FILE,
         "classification": "synthetic",
         "fhir_release": FHIR_VERSION,
         "generator": "scripts/export_synthetic_fhir.py",
         "resource_count": len(resources),
+        "resource_files": sorted(resource_outputs),
         "resource_types": sorted({resource.get_resource_type() for resource in resources}),
         "files": sorted(outputs),
         "validation_scope": (
-            "fhir.resources model validation plus deterministic IDs and local Patient references; "
-            "not terminology-server, implementation-guide, clinical, or regulatory validation"
+            "fhir.resources model validation, transaction invariants, deterministic identities, "
+            "and offline HL7 Validator CLI checks; not terminology-server, implementation-guide, "
+            "clinical, or regulatory validation"
         ),
     }
     outputs["manifest.json"] = json.dumps(manifest, indent=2, sort_keys=True) + "\n"

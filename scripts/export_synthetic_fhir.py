@@ -29,7 +29,7 @@ def check_outputs(expected: dict[str, str]) -> bool:
         for name in stale:
             print(f"stale FHIR artifact: fhir/generated/{name}", file=sys.stderr)
         return False
-    print(f"Synthetic FHIR R4 artifacts are reproducible ({len(expected) - 1} resources).")
+    print(f"Synthetic FHIR R4 artifacts are reproducible ({len(expected) - 1} artifacts).")
     return True
 
 
@@ -40,7 +40,7 @@ def write_outputs(outputs: dict[str, str]) -> None:
             old_path.unlink()
     for name, content in outputs.items():
         (OUTPUT_DIR / name).write_text(content, encoding="utf-8")
-    print(f"Wrote {len(outputs) - 1} synthetic FHIR R4 resources to fhir/generated/.")
+    print(f"Wrote {len(outputs) - 1} synthetic FHIR R4 artifacts to fhir/generated/.")
 
 
 def main() -> int:

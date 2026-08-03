@@ -1,0 +1,285 @@
+{
+  "entry": [
+    {
+      "fullUrl": "urn:uuid:7ebbc0a5-6e19-5d3d-adb3-821c3e86548b",
+      "request": {
+        "method": "PUT",
+        "url": "Patient/synthetic-patient-001"
+      },
+      "resource": {
+        "active": true,
+        "id": "synthetic-patient-001",
+        "identifier": [
+          {
+            "system": "https://veai.jp/fhir/synthetic-patient",
+            "use": "temp",
+            "value": "SYNTHETIC-001"
+          }
+        ],
+        "meta": {
+          "tag": [
+            {
+              "code": "synthetic",
+              "display": "Synthetic data",
+              "system": "https://veai.jp/fhir/CodeSystem/data-classification"
+            }
+          ]
+        },
+        "resourceType": "Patient"
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:d382c437-2741-5345-9965-3defcf8c9b35",
+      "request": {
+        "method": "PUT",
+        "url": "MedicationStatement/synthetic-medication-morning"
+      },
+      "resource": {
+        "dateAsserted": "2035-01-01T07:00:00+09:00",
+        "dosage": [
+          {
+            "doseAndRate": [
+              {
+                "doseQuantity": {
+                  "code": "mg",
+                  "system": "http://unitsofmeasure.org",
+                  "unit": "mg",
+                  "value": 100
+                }
+              }
+            ],
+            "text": "100 mg at 07:00",
+            "timing": {
+              "event": [
+                "2035-01-01T07:00:00+09:00"
+              ]
+            }
+          }
+        ],
+        "effectiveDateTime": "2035-01-01T07:00:00+09:00",
+        "id": "synthetic-medication-morning",
+        "medicationCodeableConcept": {
+          "text": "Synthetic demonstration medicine A"
+        },
+        "meta": {
+          "tag": [
+            {
+              "code": "synthetic",
+              "display": "Synthetic data",
+              "system": "https://veai.jp/fhir/CodeSystem/data-classification"
+            }
+          ]
+        },
+        "resourceType": "MedicationStatement",
+        "status": "completed",
+        "subject": {
+          "reference": "urn:uuid:7ebbc0a5-6e19-5d3d-adb3-821c3e86548b"
+        }
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:40c84064-6666-5af9-ba57-e58848998db1",
+      "request": {
+        "method": "PUT",
+        "url": "MedicationStatement/synthetic-medication-lunch"
+      },
+      "resource": {
+        "dateAsserted": "2035-01-01T12:00:00+09:00",
+        "dosage": [
+          {
+            "doseAndRate": [
+              {
+                "doseQuantity": {
+                  "code": "mg",
+                  "system": "http://unitsofmeasure.org",
+                  "unit": "mg",
+                  "value": 100
+                }
+              }
+            ],
+            "text": "100 mg at 12:00",
+            "timing": {
+              "event": [
+                "2035-01-01T12:00:00+09:00"
+              ]
+            }
+          }
+        ],
+        "effectiveDateTime": "2035-01-01T12:00:00+09:00",
+        "id": "synthetic-medication-lunch",
+        "medicationCodeableConcept": {
+          "text": "Synthetic demonstration medicine A"
+        },
+        "meta": {
+          "tag": [
+            {
+              "code": "synthetic",
+              "display": "Synthetic data",
+              "system": "https://veai.jp/fhir/CodeSystem/data-classification"
+            }
+          ]
+        },
+        "resourceType": "MedicationStatement",
+        "status": "not-taken",
+        "subject": {
+          "reference": "urn:uuid:7ebbc0a5-6e19-5d3d-adb3-821c3e86548b"
+        }
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:efcd5ade-09f6-5a2e-9487-c48fdcf88045",
+      "request": {
+        "method": "PUT",
+        "url": "Observation/synthetic-body-temperature"
+      },
+      "resource": {
+        "category": [
+          {
+            "coding": [
+              {
+                "code": "vital-signs",
+                "display": "Vital Signs",
+                "system": "http://terminology.hl7.org/CodeSystem/observation-category"
+              }
+            ]
+          }
+        ],
+        "code": {
+          "coding": [
+            {
+              "code": "8310-5",
+              "display": "Body temperature",
+              "system": "http://loinc.org"
+            }
+          ],
+          "text": "Body temperature"
+        },
+        "effectiveDateTime": "2035-01-01T08:00:00+09:00",
+        "id": "synthetic-body-temperature",
+        "meta": {
+          "tag": [
+            {
+              "code": "synthetic",
+              "display": "Synthetic data",
+              "system": "https://veai.jp/fhir/CodeSystem/data-classification"
+            }
+          ]
+        },
+        "resourceType": "Observation",
+        "status": "final",
+        "subject": {
+          "reference": "urn:uuid:7ebbc0a5-6e19-5d3d-adb3-821c3e86548b"
+        },
+        "valueQuantity": {
+          "code": "Cel",
+          "system": "http://unitsofmeasure.org",
+          "unit": "degrees Celsius",
+          "value": 36.6
+        }
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:5fda59dd-26f5-5bde-92eb-eb72bbc95295",
+      "request": {
+        "method": "PUT",
+        "url": "Observation/synthetic-heart-rate"
+      },
+      "resource": {
+        "category": [
+          {
+            "coding": [
+              {
+                "code": "vital-signs",
+                "display": "Vital Signs",
+                "system": "http://terminology.hl7.org/CodeSystem/observation-category"
+              }
+            ]
+          }
+        ],
+        "code": {
+          "coding": [
+            {
+              "code": "8867-4",
+              "display": "Heart rate",
+              "system": "http://loinc.org"
+            }
+          ],
+          "text": "Heart rate"
+        },
+        "effectiveDateTime": "2035-01-01T08:00:00+09:00",
+        "id": "synthetic-heart-rate",
+        "meta": {
+          "tag": [
+            {
+              "code": "synthetic",
+              "display": "Synthetic data",
+              "system": "https://veai.jp/fhir/CodeSystem/data-classification"
+            }
+          ]
+        },
+        "resourceType": "Observation",
+        "status": "final",
+        "subject": {
+          "reference": "urn:uuid:7ebbc0a5-6e19-5d3d-adb3-821c3e86548b"
+        },
+        "valueQuantity": {
+          "code": "/min",
+          "system": "http://unitsofmeasure.org",
+          "unit": "beats per minute",
+          "value": 68
+        }
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:948a5df3-245d-587e-bab4-785a0ca3fcce",
+      "request": {
+        "method": "PUT",
+        "url": "CarePlan/synthetic-daily-observation-plan"
+      },
+      "resource": {
+        "activity": [
+          {
+            "detail": {
+              "description": "Record scheduled medicine statements and reviewed vital signs.",
+              "status": "scheduled"
+            }
+          }
+        ],
+        "description": "A synthetic plan for demonstrating standards-based care-log exchange.",
+        "id": "synthetic-daily-observation-plan",
+        "intent": "plan",
+        "meta": {
+          "tag": [
+            {
+              "code": "synthetic",
+              "display": "Synthetic data",
+              "system": "https://veai.jp/fhir/CodeSystem/data-classification"
+            }
+          ]
+        },
+        "period": {
+          "end": "2035-01-07",
+          "start": "2035-01-01"
+        },
+        "resourceType": "CarePlan",
+        "status": "active",
+        "subject": {
+          "reference": "urn:uuid:7ebbc0a5-6e19-5d3d-adb3-821c3e86548b"
+        },
+        "title": "Synthetic daily observation plan"
+      }
+    }
+  ],
+  "id": "synthetic-transaction-bundle",
+  "meta": {
+    "tag": [
+      {
+        "code": "synthetic",
+        "display": "Synthetic data",
+        "system": "https://veai.jp/fhir/CodeSystem/data-classification"
+      }
+    ]
+  },
+  "resourceType": "Bundle",
+  "type": "transaction"
+}

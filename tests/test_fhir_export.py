@@ -6,13 +6,17 @@ import unittest
 from pathlib import Path
 
 from fhir.resources import __fhir_version__
+from fhir.resources.bundle import Bundle
 
 from fhir_export import (
+    BUNDLE_FILE,
     FHIR_VERSION,
     RESOURCE_MODELS,
+    build_transaction_bundle,
     build_resources,
     load_record,
     render_outputs,
+    validate_transaction_bundle,
 )
 
 
@@ -103,10 +107,56 @@ class FhirExportTests(unittest.TestCase):
             )
         )
 
+    def test_builds_deterministic_transaction_bundle(self):
+        resources = build_resources(self.record)
+        bundle = build_transaction_bundle(resources)
+        payload = json.loads(bundle.json(exclude_none=True, by_alias=True))
+        repeated = json.loads(
+            build_transaction_bundle(resources).json(exclude_none=True, by_alias=True)
+        )
+
+        self.assertEqual(payload, repeated)
+        self.assertEqual(payload["resourceType"], "Bundle")
+        self.assertEqual(payload["type"], "transaction")
+        self.assertEqual(len(payload["entry"]), len(resources))
+        full_urls = {entry["fullUrl"] for entry in payload["entry"]}
+        self.assertEqual(len(full_urls), len(resources))
+        self.assertTrue(all(full_url.startswith("urn:uuid:") for full_url in full_urls))
+        for entry in payload["entry"]:
+            resource = entry["resource"]
+            self.assertEqual(entry["request"]["method"], "PUT")
+            self.assertEqual(
+                entry["request"]["url"],
+                f"{resource['resourceType']}/{resource['id']}",
+            )
+
+        patient_entry = next(
+            entry for entry in payload["entry"] if entry["resource"]["resourceType"] == "Patient"
+        )
+        self.assertTrue(
+            all(
+                entry["resource"].get("subject", {}).get("reference")
+                == patient_entry["fullUrl"]
+                for entry in payload["entry"]
+                if entry["resource"]["resourceType"] != "Patient"
+            )
+        )
+
+    def test_rejects_duplicate_transaction_full_url(self):
+        payload = json.loads(
+            build_transaction_bundle(build_resources(self.record)).json(
+                exclude_none=True, by_alias=True
+            )
+        )
+        payload["entry"][1]["fullUrl"] = payload["entry"][0]["fullUrl"]
+        with self.assertRaisesRegex(ValueError, "fullUrls must be unique"):
+            validate_transaction_bundle(Bundle.parse_obj(payload))
+
     def test_generated_artifacts_are_reproducible(self):
         expected = render_outputs(self.record)
         actual = {path.name: path.read_text() for path in OUTPUT_DIR.glob("*.json")}
         self.assertEqual(actual, expected)
+        self.assertIn(BUNDLE_FILE, actual)
         result = subprocess.run(
             [sys.executable, "scripts/export_synthetic_fhir.py", "--check"],
             cwd=ROOT,

@@ -1,7 +1,10 @@
 {
+  "artifact_count": 7,
+  "bundle_file": "bundle-synthetic-transaction-bundle.json",
   "classification": "synthetic",
   "fhir_release": "4.0.1",
   "files": [
+    "bundle-synthetic-transaction-bundle.json",
     "careplan-synthetic-daily-observation-plan.json",
     "medicationstatement-synthetic-medication-lunch.json",
     "medicationstatement-synthetic-medication-morning.json",
@@ -11,11 +14,19 @@
   ],
   "generator": "scripts/export_synthetic_fhir.py",
   "resource_count": 6,
+  "resource_files": [
+    "careplan-synthetic-daily-observation-plan.json",
+    "medicationstatement-synthetic-medication-lunch.json",
+    "medicationstatement-synthetic-medication-morning.json",
+    "observation-synthetic-body-temperature.json",
+    "observation-synthetic-heart-rate.json",
+    "patient-synthetic-patient-001.json"
+  ],
   "resource_types": [
     "CarePlan",
     "MedicationStatement",
     "Observation",
     "Patient"
   ],
-  "validation_scope": "fhir.resources model validation plus deterministic IDs and local Patient references; not terminology-server, implementation-guide, clinical, or regulatory validation"
+  "validation_scope": "fhir.resources model validation, transaction invariants, deterministic identities, and offline HL7 Validator CLI checks; not terminology-server, implementation-guide, clinical, or regulatory validation"
 }
