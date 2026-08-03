@@ -389,9 +389,12 @@ def _collect_references(value: Any) -> list[str]:
     return references
 
 
-def build_transaction_bundle(resources: list[Any]) -> Bundle:
+def build_transaction_bundle(
+    resources: list[Any], bundle_id: str = BUNDLE_ID
+) -> Bundle:
     """Build a deterministic PUT transaction with resolvable urn:uuid references."""
     validate_collection(resources)
+    bundle_id = _resource_id(bundle_id, "bundle_id")
     payloads = [
         json.loads(resource.json(exclude_none=True, by_alias=True)) for resource in resources
     ]
@@ -415,7 +418,7 @@ def build_transaction_bundle(resources: list[Any]) -> Bundle:
     bundle = Bundle.parse_obj(
         {
             "resourceType": "Bundle",
-            "id": BUNDLE_ID,
+            "id": bundle_id,
             "meta": _synthetic_meta(),
             "type": "transaction",
             "entry": entries,

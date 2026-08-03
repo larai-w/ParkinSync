@@ -28,6 +28,10 @@ SUMMARY_DIR = Path("fhir/summary")
 SUMMARY_OUTPUT_DIR = SUMMARY_DIR / "generated"
 SUMMARY_MANIFEST_PATH = SUMMARY_OUTPUT_DIR / "manifest.json"
 SUMMARY_EVALUATION_PATH = SUMMARY_DIR / "evaluation-cases.json"
+WEEKLY_DIR = Path("fhir/weekly")
+WEEKLY_INPUT_PATH = WEEKLY_DIR / "synthetic-weekly-records.json"
+WEEKLY_OUTPUT_DIR = WEEKLY_DIR / "generated"
+WEEKLY_MANIFEST_PATH = WEEKLY_OUTPUT_DIR / "manifest.json"
 
 REVIEW_REQUIRED_SUFFIXES = {
     ".pages",
@@ -320,6 +324,142 @@ def validate_synthetic_summary_artifacts() -> list[str]:
     return failures
 
 
+def validate_synthetic_weekly_artifacts() -> list[str]:
+    failures: list[str] = []
+    required = (
+        WEEKLY_INPUT_PATH,
+        WEEKLY_MANIFEST_PATH,
+        WEEKLY_OUTPUT_DIR / "fact-bundle.json",
+        WEEKLY_OUTPUT_DIR / "weekly-summary.json",
+    )
+    if missing := [path.as_posix() for path in required if not path.exists()]:
+        return ["missing weekly FHIR artifact: " + path for path in missing]
+    try:
+        fixture = json.loads(WEEKLY_INPUT_PATH.read_text(encoding="utf-8"))
+        manifest = json.loads(WEEKLY_MANIFEST_PATH.read_text(encoding="utf-8"))
+        bundle_path = WEEKLY_OUTPUT_DIR / manifest["bundle_file"]
+        bundle = json.loads(bundle_path.read_text(encoding="utf-8"))
+        fact_bundle = json.loads(
+            (WEEKLY_OUTPUT_DIR / "fact-bundle.json").read_text(encoding="utf-8")
+        )
+        summary = json.loads(
+            (WEEKLY_OUTPUT_DIR / "weekly-summary.json").read_text(encoding="utf-8")
+        )
+    except (KeyError, json.JSONDecodeError, OSError) as error:
+        return [f"cannot validate weekly FHIR artifacts: {error}"]
+
+    for name, payload in (
+        ("weekly fixture", fixture),
+        ("weekly manifest", manifest),
+        ("weekly fact bundle", fact_bundle),
+        ("weekly summary", summary),
+    ):
+        if payload.get("classification") != "synthetic":
+            failures.append(f"{name} must be classified as synthetic")
+    days = fixture.get("days")
+    if not isinstance(days, list) or len(days) != 7:
+        failures.append("weekly fixture must contain exactly seven explicit days")
+        days = []
+    if any(not str(day.get("date", "")).startswith("2035-") for day in days):
+        failures.append("weekly fixture dates must use the reviewed synthetic year")
+    if not fixture.get("patient", {}).get("id", "").startswith("synthetic-"):
+        failures.append("weekly fixture Patient id must use the synthetic prefix")
+
+    expected_names = manifest.get("files")
+    if not isinstance(expected_names, list):
+        failures.append("weekly manifest files must be an array")
+        expected_names = []
+    actual_paths = sorted(
+        path for path in WEEKLY_OUTPUT_DIR.glob("*.json") if path.name != "manifest.json"
+    )
+    if [path.name for path in actual_paths] != sorted(expected_names):
+        failures.append("weekly manifest file list does not match generated artifacts")
+    hashes = manifest.get("sha256", {})
+    for path in actual_paths:
+        if hashlib.sha256(path.read_bytes()).hexdigest() != hashes.get(path.name):
+            failures.append(f"weekly manifest digest does not match {path.as_posix()}")
+
+    if bundle.get("resourceType") != "Bundle" or bundle.get("type") != "transaction":
+        failures.append("weekly FHIR Bundle must be a transaction Bundle")
+    if bundle.get("id") != "synthetic-weekly-transaction-bundle":
+        failures.append("weekly FHIR Bundle must use its reviewed synthetic id")
+    entries = bundle.get("entry", [])
+    if len(entries) != 30 or manifest.get("resource_count") != 30:
+        failures.append("weekly FHIR Bundle must contain exactly 30 resources")
+    expected_counts = {"CarePlan": 1, "MedicationStatement": 14, "Observation": 14, "Patient": 1}
+    found_counts: dict[str, int] = {}
+    for entry in entries:
+        resource = entry.get("resource", {})
+        resource_type = resource.get("resourceType")
+        found_counts[resource_type] = found_counts.get(resource_type, 0) + 1
+        identity = f"{resource_type}/{resource.get('id')}"
+        request = entry.get("request", {})
+        if request.get("method") != "PUT" or request.get("url") != identity:
+            failures.append(f"weekly FHIR request does not match {identity}")
+    if found_counts != expected_counts or manifest.get("resource_type_counts") != expected_counts:
+        failures.append("weekly FHIR resource type counts do not match the reviewed contract")
+    full_urls = [entry.get("fullUrl") for entry in entries]
+    if len(full_urls) != len(set(full_urls)) or any(
+        not isinstance(full_url, str) or not full_url.startswith("urn:uuid:")
+        for full_url in full_urls
+    ):
+        failures.append("weekly FHIR fullUrls must be unique urn:uuid values")
+    for entry in entries:
+        reference = entry.get("resource", {}).get("subject", {}).get("reference")
+        if reference and reference not in full_urls:
+            failures.append(f"weekly FHIR Bundle has unresolved reference: {reference}")
+
+    facts = fact_bundle.get("facts")
+    if fact_bundle.get("status") != "ready" or not isinstance(facts, list):
+        failures.append("weekly fact bundle must be ready")
+        facts = []
+    if len(facts) != 31 or manifest.get("fact_count") != 31:
+        failures.append("weekly fact bundle must contain 28 event and 3 aggregate facts")
+    fact_ids = {fact.get("id") for fact in facts}
+    event_ids = {
+        fact.get("id")
+        for fact in facts
+        if fact.get("kind") in {"medication", "observation"}
+    }
+    aggregates = [fact for fact in facts if str(fact.get("kind", "")).startswith("weekly-")]
+    for aggregate in aggregates:
+        source = aggregate.get("source", {})
+        derived_ids = source.get("derived_from_fact_ids", [])
+        if not derived_ids or not set(derived_ids).issubset(event_ids):
+            failures.append("weekly aggregate provenance must resolve to event facts")
+        if not source.get("method"):
+            failures.append("weekly aggregate must retain its deterministic method")
+    missingness = fact_bundle.get("missingness", {})
+    if missingness.get("missing_days") or missingness.get("missing_or_extra_events"):
+        failures.append("tracked weekly fact bundle must have complete event coverage")
+    if missingness.get("required_value_coverage_ratio") != 1.0:
+        failures.append("tracked weekly fact bundle must have complete required-value coverage")
+
+    if summary.get("status") != "ready_for_human_review":
+        failures.append("weekly summary must stop at ready_for_human_review")
+    if summary.get("requires_human_review") is not True:
+        failures.append("weekly summary must require human review")
+    if summary.get("sharing_permitted") is not False:
+        failures.append("weekly summary must not permit sharing")
+    if summary.get("analysis_window", {}).get("days") != 7:
+        failures.append("weekly summary must retain the seven-day analysis window")
+    cited_ids = {
+        fact_id
+        for statement in summary.get("statements", [])
+        for fact_id in statement.get("fact_ids", [])
+    }
+    if not cited_ids.issubset(fact_ids):
+        failures.append("weekly summary cites an unknown fact ID")
+    missed_ids = {
+        fact.get("id")
+        for fact in facts
+        if fact.get("kind") == "medication" and fact.get("status") == "not-taken"
+    }
+    if not missed_ids.issubset(cited_ids):
+        failures.append("weekly summary must cite every not-taken medication fact")
+    return failures
+
+
 def main() -> int:
     failures: list[str] = []
     tracked_or_untracked = set(candidate_files())
@@ -354,6 +494,8 @@ def main() -> int:
     if FHIR_INPUT_PATH in tracked_or_untracked:
         failures.extend(validate_synthetic_fhir_artifacts())
         failures.extend(validate_synthetic_summary_artifacts())
+    if WEEKLY_INPUT_PATH in tracked_or_untracked:
+        failures.extend(validate_synthetic_weekly_artifacts())
 
     if failures:
         print("Public artifact check failed:", file=sys.stderr)

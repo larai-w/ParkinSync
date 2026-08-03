@@ -1,0 +1,28 @@
+{
+  "bundle_file": "bundle-synthetic-weekly-transaction-bundle.json",
+  "classification": "synthetic",
+  "fact_bundle_status": "ready",
+  "fact_count": 31,
+  "fhir_release": "4.0.1",
+  "files": [
+    "bundle-synthetic-weekly-transaction-bundle.json",
+    "fact-bundle.json",
+    "weekly-summary.json"
+  ],
+  "generator": "scripts/generate_weekly_fhir.py",
+  "resource_count": 30,
+  "resource_type_counts": {
+    "CarePlan": 1,
+    "MedicationStatement": 14,
+    "Observation": 14,
+    "Patient": 1
+  },
+  "schema_version": "parkinsync-fhir-weekly-v1",
+  "sha256": {
+    "bundle-synthetic-weekly-transaction-bundle.json": "adb806a209c503653d0349eee981300d1d09506c941ef1277c280cb52a0ddbd3",
+    "fact-bundle.json": "0fcc3e43e3a74eb59ff6594c68d6abf1642a65b8fb8d1c567e0e57bf016dc623",
+    "weekly-summary.json": "62f6919fbb257fbded9003daff29079aea429da36bfefde56aee35279d73d3c6"
+  },
+  "source_fixture": "fhir/weekly/synthetic-weekly-records.json",
+  "summary_status": "ready_for_human_review"
+}

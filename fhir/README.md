@@ -30,6 +30,7 @@ synthetic_normalized_record.json
   -> model, transaction, reference, provenance, and reproducibility tests
   -> HL7 Validator CLI 6.10.0 (offline terminology mode in CI)
   -> deterministic fact bundle, data-quality gate, and grounded offline summary
+  -> separate seven-day transaction, aggregate facts, missingness, and weekly summary
 ```
 
 ## Mapping
@@ -109,3 +110,7 @@ a separate design and governance decision.
 The separate [grounded-summary experiment](summary/README.md) consumes the validated transaction
 Bundle. It retains FHIRPath provenance, calculates data-quality findings without a model, and requires
 fact citations and exact numeric consistency before returning a human-review-only result.
+
+The [seven-day evidence extension](weekly/README.md) generates 30 resources across one explicit
+synthetic week. It calculates medication counts and Observation ranges without an LLM, retains every
+source fact ID and aggregation method, and returns no narrative when a day or expected event is missing.

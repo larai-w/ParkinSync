@@ -33,6 +33,9 @@ class ReadmeLinkTests(unittest.TestCase):
             "fhir/generated/bundle-synthetic-transaction-bundle.json",
             "fhir/summary/generated/fact-bundle.json",
             "fhir/summary/generated/offline-summary.json",
+            "src/fhir_weekly.py",
+            "fhir/weekly/generated/bundle-synthetic-weekly-transaction-bundle.json",
+            "fhir/weekly/generated/weekly-summary.json",
             ".github/workflows/ci.yml",
         }
 

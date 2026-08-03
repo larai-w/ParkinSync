@@ -1,0 +1,58 @@
+{
+  "analysis_window": {
+    "days": 7,
+    "end": "2035-01-07",
+    "start": "2035-01-01"
+  },
+  "classification": "synthetic",
+  "generator": "deterministic-weekly-template-v1",
+  "included_sources": [
+    "MedicationStatement",
+    "Observation"
+  ],
+  "limitations": [
+    "Recorded ranges are descriptive and do not establish a trend, cause, diagnosis, or treatment effect.",
+    "Human review is required before any health-adjacent summary is shared."
+  ],
+  "material_corrections": [],
+  "missingness": {
+    "missing_days": [],
+    "missing_or_extra_events": [],
+    "required_value_coverage_ratio": 1.0
+  },
+  "record_counts": {
+    "MedicationStatement": 14,
+    "Observation": 14,
+    "derived_aggregate": 3
+  },
+  "requires_human_review": true,
+  "schema_version": "parkinsync-grounded-summary-v1",
+  "sharing_permitted": false,
+  "statements": [
+    {
+      "fact_ids": [
+        "fact-9b4d107f-199f-561a-90bd-504adb4c7730",
+        "fact-0826cee0-0baf-5f27-a8fa-55ed184e60ea",
+        "fact-a0d82526-c62d-57c5-aaed-3761e745e532"
+      ],
+      "text": "There were 14 medication records; 2 were recorded as not-taken."
+    },
+    {
+      "fact_ids": [
+        "fact-1204d074-6c17-540b-8c36-99e0b04d1a8a"
+      ],
+      "text": "Body temperature had 7 records ranging from 36.4 to 36.8 Cel."
+    },
+    {
+      "fact_ids": [
+        "fact-671b294c-e160-5e9e-bfcd-7a64ee120b0a"
+      ],
+      "text": "Heart rate had 7 records ranging from 66 to 72 /min."
+    }
+  ],
+  "status": "ready_for_human_review",
+  "validation": {
+    "accepted": true,
+    "errors": []
+  }
+}

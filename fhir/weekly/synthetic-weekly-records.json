@@ -1,0 +1,135 @@
+{
+  "analysis_window": {
+    "end": "2035-01-07",
+    "start": "2035-01-01"
+  },
+  "care_plan": {
+    "activity": "Record scheduled medicine statements and reviewed vital signs.",
+    "description": "A synthetic seven-day plan for demonstrating traceable care-log exchange.",
+    "end": "2035-01-07",
+    "id": "synthetic-weekly-observation-plan",
+    "intent": "plan",
+    "start": "2035-01-01",
+    "status": "active",
+    "title": "Synthetic weekly observation plan"
+  },
+  "classification": "synthetic",
+  "days": [
+    {
+      "date": "2035-01-01",
+      "observation_values": {
+        "body-temperature": 36.6,
+        "heart-rate": 68
+      },
+      "taken": {
+        "lunch": false,
+        "morning": true
+      }
+    },
+    {
+      "date": "2035-01-02",
+      "observation_values": {
+        "body-temperature": 36.5,
+        "heart-rate": 70
+      },
+      "taken": {
+        "lunch": true,
+        "morning": true
+      }
+    },
+    {
+      "date": "2035-01-03",
+      "observation_values": {
+        "body-temperature": 36.7,
+        "heart-rate": 72
+      },
+      "taken": {
+        "lunch": true,
+        "morning": true
+      }
+    },
+    {
+      "date": "2035-01-04",
+      "observation_values": {
+        "body-temperature": 36.4,
+        "heart-rate": 66
+      },
+      "taken": {
+        "lunch": false,
+        "morning": true
+      }
+    },
+    {
+      "date": "2035-01-05",
+      "observation_values": {
+        "body-temperature": 36.8,
+        "heart-rate": 71
+      },
+      "taken": {
+        "lunch": true,
+        "morning": true
+      }
+    },
+    {
+      "date": "2035-01-06",
+      "observation_values": {
+        "body-temperature": 36.6,
+        "heart-rate": 69
+      },
+      "taken": {
+        "lunch": true,
+        "morning": true
+      }
+    },
+    {
+      "date": "2035-01-07",
+      "observation_values": {
+        "body-temperature": 36.5,
+        "heart-rate": 67
+      },
+      "taken": {
+        "lunch": true,
+        "morning": true
+      }
+    }
+  ],
+  "material_corrections": [],
+  "medication_schedule": [
+    {
+      "dose": {
+        "ucum_code": "mg",
+        "unit": "mg",
+        "value": 100
+      },
+      "name": "Synthetic demonstration medicine A",
+      "scheduled_time": "07:00",
+      "slot": "morning"
+    },
+    {
+      "dose": {
+        "ucum_code": "mg",
+        "unit": "mg",
+        "value": 100
+      },
+      "name": "Synthetic demonstration medicine A",
+      "scheduled_time": "12:00",
+      "slot": "lunch"
+    }
+  ],
+  "observation_schedule": [
+    {
+      "effective_time": "08:00",
+      "kind": "body-temperature"
+    },
+    {
+      "effective_time": "08:00",
+      "kind": "heart-rate"
+    }
+  ],
+  "patient": {
+    "id": "synthetic-patient-weekly-001",
+    "identifier": "SYNTHETIC-WEEKLY-001"
+  },
+  "schema_version": "parkinsync-fhir-weekly-v1",
+  "timezone": "+09:00"
+}

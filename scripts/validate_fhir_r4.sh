@@ -19,7 +19,10 @@ from pathlib import Path
 root = Path("'"$ROOT"'")
 manifest = json.loads((root / "fhir/generated/manifest.json").read_text())
 names = [*manifest["resource_files"], manifest["bundle_file"]]
-print(" ".join(str(root / "fhir/generated" / name) for name in names))
+files = [str(root / "fhir/generated" / name) for name in names]
+weekly_manifest = json.loads((root / "fhir/weekly/generated/manifest.json").read_text())
+files.append(str(root / "fhir/weekly/generated" / weekly_manifest["bundle_file"]))
+print(" ".join(files))
 ')
 
 # Generated artifact names are controlled by the manifest and contain no whitespace.

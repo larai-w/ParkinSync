@@ -21,6 +21,7 @@ technical reviewer can follow the evidence in this order:
 | How are ParkinSync fields mapped without inventing clinical meaning? | [`src/fhir_export.py`](src/fhir_export.py) and the [mapping boundary](fhir/README.md) | Reviewed LOINC/UCUM mappings, explicit medication fields, synthetic-only enforcement, and fail-closed input checks |
 | Does the transaction resolve and validate? | [Generated R4 transaction Bundle](fhir/generated/bundle-synthetic-transaction-bundle.json) and [`tests/test_fhir_export.py`](tests/test_fhir_export.py) | Deterministic `fullUrl` values, matching `PUT` requests, Patient reference resolution, and independent HL7 Validator CI |
 | How is GenAI grounding enforced? | [`src/fhir_summary.py`](src/fhir_summary.py), [fact bundle](fhir/summary/generated/fact-bundle.json), and [offline summary](fhir/summary/generated/offline-summary.json) | Stable fact IDs, value-level FHIRPath provenance, exact-number checks, mandatory citations, and human review |
+| Does the summary cover a real seven-day evidence window? | [`src/fhir_weekly.py`](src/fhir_weekly.py), [weekly transaction Bundle](fhir/weekly/generated/bundle-synthetic-weekly-transaction-bundle.json), and [weekly summary](fhir/weekly/generated/weekly-summary.json) | 30 FHIR resources, 28 event facts, 3 traceable aggregate facts, complete daily coverage, and structured missingness |
 | What happens with adversarial or incomplete input? | [`tests/test_fhir_summary.py`](tests/test_fhir_summary.py) and [evaluation cases](fhir/summary/evaluation-cases.json) | Rejection of changed numbers, uncited claims, omitted `not-taken` medication, conflicting timestamps, clinical advice, and prompt-injection text |
 | Is the evidence reproducible and continuously checked? | [CI workflow](.github/workflows/ci.yml), [latest main CI](https://github.com/larai-w/ParkinSync/actions/workflows/ci.yml?query=branch%3Amain), and [latest security baseline](https://github.com/larai-w/ParkinSync/actions/workflows/security-baseline.yml?query=branch%3Amain) | Deterministic regeneration, public-artifact policy, full test suite, HL7 Validator CLI, secret scan, and dependency audit |
 
@@ -137,7 +138,8 @@ Master ledger (Google Sheets, 25-column schema)
   ├─ Amazon SageMaker  (exploratory Pearson r and lag analyses)
   └─ Offline FHIR R4 adapter (synthetic demo only)
        ├─ Patient / MedicationStatement / Observation / CarePlan transaction Bundle
-       └─ deterministic facts, data-quality gate, and grounded offline summary
+       ├─ deterministic facts, data-quality gate, and grounded offline summary
+       └─ seven-day Bundle, aggregate facts, missingness, and weekly summary
 
 Secrets: AWS Secrets Manager (Google SA JSON, SwitchBot key, Weather API key)
 IaC: deploy.sh (bash) — packages Lambda zips and calls aws lambda update-function-code
@@ -178,6 +180,8 @@ tests/test_fhir_export.py           — FHIR R4 mapping, safety, reference, and
                                       reproducibility checks
 tests/test_fhir_summary.py          — grounded fact provenance, data quality,
                                       adversarial claims, and summary gating
+tests/test_fhir_weekly.py           — seven-day generation, aggregate provenance,
+                                      missingness, and weekly adversarial checks
 tests/test_readme_links.py          — reviewer-path and repository-relative link checks
 ```
 
@@ -204,6 +208,7 @@ python analytics/pd_correlation_analysis.py
 python scripts/generate_synthetic_fixture.py --check
 python scripts/export_synthetic_fhir.py --check
 PYTHONPATH=src python scripts/generate_grounded_summary.py --check
+PYTHONPATH=src python scripts/generate_weekly_fhir.py --check
 
 # Deploy only the indoor telemetry Lambda; OCR remains behind its release guard
 DEPLOY_TARGET=iot AWS_REGION=us-east-1 bash deploy.sh
@@ -222,11 +227,13 @@ src/
   indoor_temp_logger.py        # Schedule-driven Lambda: SwitchBot telemetry
   fhir_export.py               # Synthetic normalized record -> FHIR R4 adapter
   fhir_summary.py              # FHIR facts, data quality, and summary claim gate
+  fhir_weekly.py               # Seven-day synthetic Bundle and aggregate facts
 tests/
   test_lambda_function.py      # OCR and weather unittest suite
   test_indoor_temp_logger.py   # Synthetic daily-aggregation unittest suite
   test_fhir_export.py          # FHIR model, mapping, and reproducibility tests
   test_fhir_summary.py         # Grounding, quality, and adversarial summary tests
+  test_fhir_weekly.py          # Weekly completeness, provenance, and claim tests
 fhir/                          # Synthetic FHIR and grounded-summary evidence
 analytics/
   pd_correlation_analysis.py   # EDA / schema audit script
