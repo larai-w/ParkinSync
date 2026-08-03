@@ -88,11 +88,17 @@ deploy_function_code() {
     --function-name "$function_name" \
     --timeout "$LAMBDA_TIMEOUT" \
     >/dev/null
+  aws lambda wait function-updated \
+    --region "$AWS_REGION" \
+    --function-name "$function_name"
 
   aws lambda update-function-code \
     --region "$AWS_REGION" \
     --function-name "$function_name" \
     --zip-file "fileb://$zip_path"
+  aws lambda wait function-updated \
+    --region "$AWS_REGION" \
+    --function-name "$function_name"
 
   version="$(aws lambda publish-version \
     --region "$AWS_REGION" \
