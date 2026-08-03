@@ -1,0 +1,38 @@
+{
+  "classification": "synthetic",
+  "generator": "deterministic-template-v1",
+  "requires_human_review": true,
+  "schema_version": "parkinsync-grounded-summary-v1",
+  "sharing_permitted": false,
+  "statements": [
+    {
+      "fact_ids": [
+        "fact-3c7afb41-562d-53e1-9249-03e42448ebbb"
+      ],
+      "text": "Synthetic demonstration medicine A was recorded as not-taken with a dose of 100 mg."
+    },
+    {
+      "fact_ids": [
+        "fact-42b656f5-c802-537e-9204-6502236f172d"
+      ],
+      "text": "Heart rate was recorded as 68 /min."
+    },
+    {
+      "fact_ids": [
+        "fact-f68d4b8e-9419-531e-b838-7aa3f4ccb6d2"
+      ],
+      "text": "Synthetic demonstration medicine A was recorded as completed with a dose of 100 mg."
+    },
+    {
+      "fact_ids": [
+        "fact-fd9ec18d-9904-5604-ae14-1d1b63e1283a"
+      ],
+      "text": "Body temperature was recorded as 36.6 Cel."
+    }
+  ],
+  "status": "ready_for_human_review",
+  "validation": {
+    "accepted": true,
+    "errors": []
+  }
+}

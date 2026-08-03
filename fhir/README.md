@@ -29,6 +29,7 @@ synthetic_normalized_record.json
   -> deterministic JSON resources + transaction Bundle + manifest
   -> model, transaction, reference, provenance, and reproducibility tests
   -> HL7 Validator CLI 6.10.0 (offline terminology mode in CI)
+  -> deterministic fact bundle, data-quality gate, and grounded offline summary
 ```
 
 ## Mapping
@@ -87,6 +88,9 @@ PYTHONPATH=src python -m unittest tests.test_fhir_export -v
 
 # Requires Java 17+ and a separately downloaded pinned validator_cli.jar.
 FHIR_VALIDATOR_JAR=/path/to/validator_cli.jar scripts/validate_fhir_r4.sh
+
+# No model or network access is used.
+PYTHONPATH=src python scripts/generate_grounded_summary.py --check
 ```
 
 `fhir.resources` validates FHIR R4 model structure, data types, cardinalities implemented by the model,
@@ -101,3 +105,7 @@ clinical review, or regulatory certification. NZPS is a document Bundle built ar
 whereas this demo intentionally produces an API transaction Bundle. Adding NZ identifiers, NZ Base
 profiles, a suitable shared-care or patient-summary use case, and the applicable Health NZ package is
 a separate design and governance decision.
+
+The separate [grounded-summary experiment](summary/README.md) consumes the validated transaction
+Bundle. It retains FHIRPath provenance, calculates data-quality findings without a model, and requires
+fact citations and exact numeric consistency before returning a human-review-only result.

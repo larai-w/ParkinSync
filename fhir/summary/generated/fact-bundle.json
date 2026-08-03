@@ -1,0 +1,247 @@
+{
+  "classification": "synthetic",
+  "facts": [
+    {
+      "dose_value": 100,
+      "effective_time": "2035-01-01T12:00:00+09:00",
+      "id": "fact-3c7afb41-562d-53e1-9249-03e42448ebbb",
+      "kind": "medication",
+      "medication": "Synthetic demonstration medicine A",
+      "source": {
+        "resource_id": "synthetic-medication-lunch",
+        "resource_type": "MedicationStatement",
+        "values": [
+          {
+            "fhir_path": "MedicationStatement.medicationCodeableConcept.text",
+            "name": "medication",
+            "value": "Synthetic demonstration medicine A"
+          },
+          {
+            "fhir_path": "MedicationStatement.status",
+            "name": "status",
+            "value": "not-taken"
+          },
+          {
+            "fhir_path": "MedicationStatement.effectiveDateTime",
+            "name": "effective_time",
+            "value": "2035-01-01T12:00:00+09:00"
+          },
+          {
+            "fhir_path": "MedicationStatement.dosage[0].doseAndRate[0].doseQuantity.value",
+            "name": "dose_value",
+            "value": 100
+          },
+          {
+            "fhir_path": "MedicationStatement.dosage[0].doseAndRate[0].doseQuantity.system",
+            "name": "unit_system",
+            "value": "http://unitsofmeasure.org"
+          },
+          {
+            "fhir_path": "MedicationStatement.dosage[0].doseAndRate[0].doseQuantity.code",
+            "name": "unit",
+            "value": "mg"
+          },
+          {
+            "fhir_path": "MedicationStatement.subject.reference",
+            "name": "subject_reference",
+            "value": "urn:uuid:7ebbc0a5-6e19-5d3d-adb3-821c3e86548b"
+          }
+        ]
+      },
+      "status": "not-taken",
+      "subject_reference": "urn:uuid:7ebbc0a5-6e19-5d3d-adb3-821c3e86548b",
+      "unit": "mg"
+    },
+    {
+      "code": "8867-4",
+      "effective_time": "2035-01-01T08:00:00+09:00",
+      "id": "fact-42b656f5-c802-537e-9204-6502236f172d",
+      "kind": "observation",
+      "label": "Heart rate",
+      "source": {
+        "resource_id": "synthetic-heart-rate",
+        "resource_type": "Observation",
+        "values": [
+          {
+            "fhir_path": "Observation.code.text",
+            "name": "label",
+            "value": "Heart rate"
+          },
+          {
+            "fhir_path": "Observation.code.coding[0].code",
+            "name": "code",
+            "value": "8867-4"
+          },
+          {
+            "fhir_path": "Observation.status",
+            "name": "status",
+            "value": "final"
+          },
+          {
+            "fhir_path": "Observation.effectiveDateTime",
+            "name": "effective_time",
+            "value": "2035-01-01T08:00:00+09:00"
+          },
+          {
+            "fhir_path": "Observation.valueQuantity.value",
+            "name": "value",
+            "value": 68
+          },
+          {
+            "fhir_path": "Observation.valueQuantity.system",
+            "name": "unit_system",
+            "value": "http://unitsofmeasure.org"
+          },
+          {
+            "fhir_path": "Observation.valueQuantity.code",
+            "name": "unit",
+            "value": "/min"
+          },
+          {
+            "fhir_path": "Observation.subject.reference",
+            "name": "subject_reference",
+            "value": "urn:uuid:7ebbc0a5-6e19-5d3d-adb3-821c3e86548b"
+          }
+        ]
+      },
+      "status": "final",
+      "subject_reference": "urn:uuid:7ebbc0a5-6e19-5d3d-adb3-821c3e86548b",
+      "unit": "/min",
+      "value": 68
+    },
+    {
+      "dose_value": 100,
+      "effective_time": "2035-01-01T07:00:00+09:00",
+      "id": "fact-f68d4b8e-9419-531e-b838-7aa3f4ccb6d2",
+      "kind": "medication",
+      "medication": "Synthetic demonstration medicine A",
+      "source": {
+        "resource_id": "synthetic-medication-morning",
+        "resource_type": "MedicationStatement",
+        "values": [
+          {
+            "fhir_path": "MedicationStatement.medicationCodeableConcept.text",
+            "name": "medication",
+            "value": "Synthetic demonstration medicine A"
+          },
+          {
+            "fhir_path": "MedicationStatement.status",
+            "name": "status",
+            "value": "completed"
+          },
+          {
+            "fhir_path": "MedicationStatement.effectiveDateTime",
+            "name": "effective_time",
+            "value": "2035-01-01T07:00:00+09:00"
+          },
+          {
+            "fhir_path": "MedicationStatement.dosage[0].doseAndRate[0].doseQuantity.value",
+            "name": "dose_value",
+            "value": 100
+          },
+          {
+            "fhir_path": "MedicationStatement.dosage[0].doseAndRate[0].doseQuantity.system",
+            "name": "unit_system",
+            "value": "http://unitsofmeasure.org"
+          },
+          {
+            "fhir_path": "MedicationStatement.dosage[0].doseAndRate[0].doseQuantity.code",
+            "name": "unit",
+            "value": "mg"
+          },
+          {
+            "fhir_path": "MedicationStatement.subject.reference",
+            "name": "subject_reference",
+            "value": "urn:uuid:7ebbc0a5-6e19-5d3d-adb3-821c3e86548b"
+          }
+        ]
+      },
+      "status": "completed",
+      "subject_reference": "urn:uuid:7ebbc0a5-6e19-5d3d-adb3-821c3e86548b",
+      "unit": "mg"
+    },
+    {
+      "code": "8310-5",
+      "effective_time": "2035-01-01T08:00:00+09:00",
+      "id": "fact-fd9ec18d-9904-5604-ae14-1d1b63e1283a",
+      "kind": "observation",
+      "label": "Body temperature",
+      "source": {
+        "resource_id": "synthetic-body-temperature",
+        "resource_type": "Observation",
+        "values": [
+          {
+            "fhir_path": "Observation.code.text",
+            "name": "label",
+            "value": "Body temperature"
+          },
+          {
+            "fhir_path": "Observation.code.coding[0].code",
+            "name": "code",
+            "value": "8310-5"
+          },
+          {
+            "fhir_path": "Observation.status",
+            "name": "status",
+            "value": "final"
+          },
+          {
+            "fhir_path": "Observation.effectiveDateTime",
+            "name": "effective_time",
+            "value": "2035-01-01T08:00:00+09:00"
+          },
+          {
+            "fhir_path": "Observation.valueQuantity.value",
+            "name": "value",
+            "value": 36.6
+          },
+          {
+            "fhir_path": "Observation.valueQuantity.system",
+            "name": "unit_system",
+            "value": "http://unitsofmeasure.org"
+          },
+          {
+            "fhir_path": "Observation.valueQuantity.code",
+            "name": "unit",
+            "value": "Cel"
+          },
+          {
+            "fhir_path": "Observation.subject.reference",
+            "name": "subject_reference",
+            "value": "urn:uuid:7ebbc0a5-6e19-5d3d-adb3-821c3e86548b"
+          }
+        ]
+      },
+      "status": "final",
+      "subject_reference": "urn:uuid:7ebbc0a5-6e19-5d3d-adb3-821c3e86548b",
+      "unit": "Cel",
+      "value": 36.6
+    }
+  ],
+  "fhir_release": "4.0.1",
+  "quality": {
+    "conflicting_timestamps": [],
+    "contradictory_statuses": [],
+    "coverage": {
+      "eligible_resource_count": 4,
+      "fact_count": 4,
+      "missing_fact_types": [],
+      "present_fact_types": [
+        "medication",
+        "observation"
+      ],
+      "present_value_count": 30,
+      "ratio": 1.0,
+      "required_value_count": 30
+    },
+    "duplicates": [],
+    "invalid_resources": [],
+    "missing_values": [],
+    "prompt_injection_signals": [],
+    "unit_mismatches": [],
+    "unresolved_references": []
+  },
+  "schema_version": "parkinsync-fhir-facts-v1",
+  "source_bundle_id": "synthetic-transaction-bundle",
+  "status": "ready"
+}

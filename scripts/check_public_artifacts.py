@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import csv
+import hashlib
 import json
 import re
 import subprocess
@@ -23,6 +24,10 @@ SCHEMA_PATH = Path("design/master_schema_template.csv")
 FHIR_INPUT_PATH = Path("fhir/synthetic_normalized_record.json")
 FHIR_OUTPUT_DIR = Path("fhir/generated")
 FHIR_MANIFEST_PATH = FHIR_OUTPUT_DIR / "manifest.json"
+SUMMARY_DIR = Path("fhir/summary")
+SUMMARY_OUTPUT_DIR = SUMMARY_DIR / "generated"
+SUMMARY_MANIFEST_PATH = SUMMARY_OUTPUT_DIR / "manifest.json"
+SUMMARY_EVALUATION_PATH = SUMMARY_DIR / "evaluation-cases.json"
 
 REVIEW_REQUIRED_SUFFIXES = {
     ".pages",
@@ -213,6 +218,108 @@ def validate_synthetic_fhir_artifacts() -> list[str]:
     return failures
 
 
+def validate_synthetic_summary_artifacts() -> list[str]:
+    failures: list[str] = []
+    required = (
+        SUMMARY_EVALUATION_PATH,
+        SUMMARY_MANIFEST_PATH,
+        SUMMARY_OUTPUT_DIR / "fact-bundle.json",
+        SUMMARY_OUTPUT_DIR / "offline-summary.json",
+    )
+    if missing := [path.as_posix() for path in required if not path.exists()]:
+        return ["missing grounded-summary artifact: " + path for path in missing]
+    try:
+        evaluation = json.loads(SUMMARY_EVALUATION_PATH.read_text(encoding="utf-8"))
+        manifest = json.loads(SUMMARY_MANIFEST_PATH.read_text(encoding="utf-8"))
+        fact_bundle = json.loads(
+            (SUMMARY_OUTPUT_DIR / "fact-bundle.json").read_text(encoding="utf-8")
+        )
+        summary = json.loads(
+            (SUMMARY_OUTPUT_DIR / "offline-summary.json").read_text(encoding="utf-8")
+        )
+    except (json.JSONDecodeError, OSError) as error:
+        return [f"cannot validate grounded-summary artifacts: {error}"]
+
+    for name, payload in (
+        ("evaluation fixture", evaluation),
+        ("summary manifest", manifest),
+        ("fact bundle", fact_bundle),
+        ("offline summary", summary),
+    ):
+        if payload.get("classification") != "synthetic":
+            failures.append(f"{name} must be classified as synthetic")
+
+    expected_names = manifest.get("files")
+    if not isinstance(expected_names, list):
+        failures.append("summary manifest files must be an array")
+        expected_names = []
+    actual_paths = sorted(
+        path for path in SUMMARY_OUTPUT_DIR.glob("*.json") if path.name != "manifest.json"
+    )
+    if [path.name for path in actual_paths] != sorted(expected_names):
+        failures.append("summary manifest file list does not match generated artifacts")
+    hashes = manifest.get("sha256", {})
+    for path in actual_paths:
+        digest = hashlib.sha256(path.read_bytes()).hexdigest()
+        if hashes.get(path.name) != digest:
+            failures.append(f"summary manifest digest does not match {path.as_posix()}")
+
+    facts = fact_bundle.get("facts")
+    if fact_bundle.get("status") != "ready" or not isinstance(facts, list) or not facts:
+        failures.append("tracked fact bundle must be ready and non-empty")
+        facts = []
+    fact_ids = [fact.get("id") for fact in facts]
+    if len(fact_ids) != len(set(fact_ids)) or any(
+        not isinstance(fact_id, str) or not fact_id.startswith("fact-")
+        for fact_id in fact_ids
+    ):
+        failures.append("fact IDs must be unique and stable-looking")
+    for fact in facts:
+        source = fact.get("source", {})
+        if not source.get("resource_id", "").startswith("synthetic-"):
+            failures.append("summary fact source ID must use the synthetic prefix")
+        values = source.get("values")
+        if not isinstance(values, list) or not values:
+            failures.append("summary fact must retain source values")
+            continue
+        for value in values:
+            if not isinstance(value.get("fhir_path"), str) or not value.get("fhir_path"):
+                failures.append("every summary fact value must retain a FHIR path")
+
+    quality = fact_bundle.get("quality", {})
+    finding_fields = (
+        "missing_values",
+        "duplicates",
+        "unit_mismatches",
+        "unresolved_references",
+        "contradictory_statuses",
+        "conflicting_timestamps",
+        "invalid_resources",
+        "prompt_injection_signals",
+    )
+    if any(quality.get(field) for field in finding_fields):
+        failures.append("tracked fact bundle must not contain data-quality findings")
+    if quality.get("coverage", {}).get("ratio") != 1.0:
+        failures.append("tracked fact bundle must have complete required-value coverage")
+
+    if summary.get("status") != "ready_for_human_review":
+        failures.append("offline summary must stop at ready_for_human_review")
+    if summary.get("requires_human_review") is not True:
+        failures.append("offline summary must require human review")
+    if summary.get("sharing_permitted") is not False:
+        failures.append("offline summary must not permit sharing")
+    if summary.get("validation", {}).get("accepted") is not True:
+        failures.append("tracked offline summary must pass the deterministic candidate gate")
+    cited_ids = {
+        fact_id
+        for statement in summary.get("statements", [])
+        for fact_id in statement.get("fact_ids", [])
+    }
+    if not cited_ids.issubset(set(fact_ids)):
+        failures.append("offline summary cites an unknown fact ID")
+    return failures
+
+
 def main() -> int:
     failures: list[str] = []
     tracked_or_untracked = set(candidate_files())
@@ -246,6 +353,7 @@ def main() -> int:
         failures.extend(validate_synthetic_fixture())
     if FHIR_INPUT_PATH in tracked_or_untracked:
         failures.extend(validate_synthetic_fhir_artifacts())
+        failures.extend(validate_synthetic_summary_artifacts())
 
     if failures:
         print("Public artifact check failed:", file=sys.stderr)

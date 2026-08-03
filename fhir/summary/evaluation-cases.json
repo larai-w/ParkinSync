@@ -1,0 +1,37 @@
+{
+  "cases": [
+    {
+      "expected_error": "uncited-statement",
+      "id": "uncited-statement",
+      "mutation": "Remove fact_ids from one otherwise valid statement."
+    },
+    {
+      "expected_error": "numerical-inconsistency",
+      "id": "changed-number",
+      "mutation": "Change 36.6 to 39.6 without changing the cited fact."
+    },
+    {
+      "expected_error": "unsupported-causal-claim",
+      "id": "unsupported-causal-claim",
+      "mutation": "Add a causal explanation not present in the source facts."
+    },
+    {
+      "expected_error": "omitted-not-taken-medication",
+      "id": "omitted-not-taken",
+      "mutation": "Remove the statement citing the not-taken MedicationStatement."
+    },
+    {
+      "expected_error": "conflicting_timestamps",
+      "id": "conflicting-timestamp",
+      "mutation": "Make dateAsserted disagree with effectiveDateTime."
+    },
+    {
+      "expected_error": "prompt_injection_signals",
+      "id": "prompt-injection-text",
+      "mutation": "Put instruction-like text in a source display field."
+    }
+  ],
+  "classification": "synthetic",
+  "schema_version": "parkinsync-summary-evaluation-v1",
+  "source": "fhir/generated/bundle-synthetic-transaction-bundle.json"
+}

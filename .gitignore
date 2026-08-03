@@ -12,6 +12,9 @@ __pycache__/
 # Reviewed deterministic FHIR demo inputs and outputs are synthetic public artifacts.
 !fhir/*.json
 !fhir/generated/*.json
+# Reviewed deterministic grounded-summary evidence is synthetic and public.
+!fhir/summary/*.json
+!fhir/summary/generated/*.json
 .env
 secret_key.txt
 

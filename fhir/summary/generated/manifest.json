@@ -1,0 +1,17 @@
+{
+  "classification": "synthetic",
+  "fact_bundle_status": "ready",
+  "fact_count": 4,
+  "files": [
+    "fact-bundle.json",
+    "offline-summary.json"
+  ],
+  "generator": "deterministic-template-v1",
+  "schema_version": "parkinsync-grounded-summary-v1",
+  "sha256": {
+    "fact-bundle.json": "95c947b02edea0aa36802180587805c9c2d83eba494376ee0f5a49314c1f7cd6",
+    "offline-summary.json": "63208f01a655ba8fc8538a9955f8381c9fceb78c01a1da9037e83f4cf746b8c2"
+  },
+  "source_bundle_id": "synthetic-transaction-bundle",
+  "summary_status": "ready_for_human_review"
+}

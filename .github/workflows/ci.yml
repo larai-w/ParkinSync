@@ -63,6 +63,9 @@ jobs:
       - name: Check deterministic FHIR R4 artifacts
         run: python scripts/export_synthetic_fhir.py --check
 
+      - name: Check deterministic grounded-summary artifacts
+        run: python scripts/generate_grounded_summary.py --check
+
       - name: Validate generated artifacts with HL7 Validator CLI
         run: scripts/validate_fhir_r4.sh
 

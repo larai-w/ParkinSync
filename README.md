@@ -110,7 +110,8 @@ Caregiver paper log
 Master ledger (Google Sheets, 25-column schema)
   ├─ Amazon SageMaker  (exploratory Pearson r and lag analyses)
   └─ Offline FHIR R4 adapter (synthetic demo only)
-       └─ Patient / MedicationStatement / Observation / CarePlan transaction Bundle
+       ├─ Patient / MedicationStatement / Observation / CarePlan transaction Bundle
+       └─ deterministic facts, data-quality gate, and grounded offline summary
 
 Secrets: AWS Secrets Manager (Google SA JSON, SwitchBot key, Weather API key)
 IaC: deploy.sh (bash) — packages Lambda zips and calls aws lambda update-function-code
@@ -149,6 +150,8 @@ tests/test_indoor_temp_logger.py    — 11 synthetic telemetry cases covering da
 analytics/pd_correlation_analysis.py — synthetic-fixture schema and EDA audit
 tests/test_fhir_export.py           — FHIR R4 mapping, safety, reference, and
                                       reproducibility checks
+tests/test_fhir_summary.py          — grounded fact provenance, data quality,
+                                      adversarial claims, and summary gating
 ```
 
 Run tests: `PYTHONPATH=src python -m unittest discover -s tests -v` (requires
@@ -173,6 +176,7 @@ python analytics/pd_correlation_analysis.py
 # Confirm generated public artifacts are reproducible
 python scripts/generate_synthetic_fixture.py --check
 python scripts/export_synthetic_fhir.py --check
+PYTHONPATH=src python scripts/generate_grounded_summary.py --check
 
 # Deploy only the indoor telemetry Lambda; OCR remains behind its release guard
 DEPLOY_TARGET=iot AWS_REGION=us-east-1 bash deploy.sh
@@ -190,11 +194,13 @@ src/
   ParkinSync_OCR_Handler.py    # Event-driven Lambda: OCR + weather enrichment
   indoor_temp_logger.py        # Schedule-driven Lambda: SwitchBot telemetry
   fhir_export.py               # Synthetic normalized record -> FHIR R4 adapter
+  fhir_summary.py              # FHIR facts, data quality, and summary claim gate
 tests/
   test_lambda_function.py      # OCR and weather unittest suite
   test_indoor_temp_logger.py   # Synthetic daily-aggregation unittest suite
   test_fhir_export.py          # FHIR model, mapping, and reproducibility tests
-fhir/                          # Synthetic input, mapping notes, generated FHIR JSON
+  test_fhir_summary.py         # Grounding, quality, and adversarial summary tests
+fhir/                          # Synthetic FHIR and grounded-summary evidence
 analytics/
   pd_correlation_analysis.py   # EDA / schema audit script
   synthetic_sample_data_v1.3.csv # Deterministic fixture; not clinical evidence
