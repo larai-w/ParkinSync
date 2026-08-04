@@ -19,9 +19,9 @@ jobs:
       FHIR_VALIDATOR_SHA256: fc663ae55dd31bbfde19788dddfb49cacbeebc3c64498fa7b7779df90000434b
       FHIR_VALIDATOR_VERSION: 6.10.0
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: '3.12'
           cache: pip
