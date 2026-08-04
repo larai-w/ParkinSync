@@ -32,6 +32,8 @@ WEEKLY_DIR = Path("fhir/weekly")
 WEEKLY_INPUT_PATH = WEEKLY_DIR / "synthetic-weekly-records.json"
 WEEKLY_OUTPUT_DIR = WEEKLY_DIR / "generated"
 WEEKLY_MANIFEST_PATH = WEEKLY_OUTPUT_DIR / "manifest.json"
+FHIR_SERVER_CONTRACT_PATH = Path("fhir/server/roundtrip-contract.json")
+FHIR_ROUNDTRIP_WORKFLOW_PATH = Path(".github/workflows/fhir-roundtrip.yml")
 
 REVIEW_REQUIRED_SUFFIXES = {
     ".pages",
@@ -460,6 +462,80 @@ def validate_synthetic_weekly_artifacts() -> list[str]:
     return failures
 
 
+def validate_fhir_server_contract() -> list[str]:
+    failures: list[str] = []
+    try:
+        contract = json.loads(FHIR_SERVER_CONTRACT_PATH.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError) as error:
+        return [f"cannot validate FHIR server contract: {error}"]
+
+    if contract.get("schema_version") != "parkinsync-fhir-roundtrip-contract-v1":
+        failures.append("FHIR server contract schema version is not reviewed")
+    if contract.get("classification") != "synthetic":
+        failures.append("FHIR server contract must be classified as synthetic")
+
+    expected = contract.get("expected", {})
+    expected_counts = {
+        "CarePlan": 1,
+        "MedicationStatement": 14,
+        "Observation": 14,
+        "Patient": 1,
+    }
+    if expected.get("fhir_version") != "4.0.1":
+        failures.append("FHIR server contract must require FHIR R4 4.0.1")
+    if expected.get("resource_count") != 30:
+        failures.append("FHIR server contract must require exactly 30 resources")
+    if expected.get("resource_type_counts") != expected_counts:
+        failures.append("FHIR server contract resource counts are not reviewed")
+    source_bundle = expected.get("source_bundle")
+    if source_bundle != (
+        "fhir/weekly/generated/bundle-synthetic-weekly-transaction-bundle.json"
+    ) or not Path(str(source_bundle)).exists():
+        failures.append("FHIR server contract source Bundle is missing or not reviewed")
+
+    server = contract.get("ephemeral_server", {})
+    if server.get("image") != "hapiproject/hapi:v8.10.0-2":
+        failures.append("FHIR server image tag is not reviewed")
+    if server.get("image_digest") != (
+        "sha256:c5e53fb34bf39958c336837795f504673103f212e179ced14c8f7b96b585a182"
+    ):
+        failures.append("FHIR server image digest is not pinned to the reviewed value")
+    if server.get("base_url") != "http://127.0.0.1:8080/fhir":
+        failures.append("FHIR server must bind to the reviewed loopback URL")
+    if server.get("network_exposure") != "GitHub runner loopback only":
+        failures.append("FHIR server network exposure must remain loopback-only")
+    if server.get("persistence") != "destroyed after each job":
+        failures.append("FHIR server data must be destroyed after every job")
+
+    allowlist = set(contract.get("normalization_allowlist", []))
+    reviewed_allowlist = {
+        "meta.lastUpdated",
+        "meta.source",
+        "meta.versionId",
+        "urn:uuid reference to matching ResourceType/id",
+    }
+    if allowlist != reviewed_allowlist:
+        failures.append("FHIR server normalization allowlist is not reviewed")
+
+    try:
+        workflow = FHIR_ROUNDTRIP_WORKFLOW_PATH.read_text(encoding="utf-8")
+    except OSError as error:
+        failures.append(f"cannot validate FHIR round-trip workflow: {error}")
+        return failures
+    pinned_image = f"{server.get('image')}@{server.get('image_digest')}"
+    required_workflow_text = (
+        pinned_image,
+        "--publish 127.0.0.1:8080:8080",
+        "--base-url http://127.0.0.1:8080/fhir",
+        "docker rm --force parkinsync-hapi",
+    )
+    if any(value not in workflow for value in required_workflow_text):
+        failures.append("FHIR round-trip workflow does not match the reviewed server contract")
+    if "secrets." in workflow:
+        failures.append("FHIR round-trip workflow must not consume repository secrets")
+    return failures
+
+
 def main() -> int:
     failures: list[str] = []
     tracked_or_untracked = set(candidate_files())
@@ -496,6 +572,8 @@ def main() -> int:
         failures.extend(validate_synthetic_summary_artifacts())
     if WEEKLY_INPUT_PATH in tracked_or_untracked:
         failures.extend(validate_synthetic_weekly_artifacts())
+    if FHIR_SERVER_CONTRACT_PATH in tracked_or_untracked:
+        failures.extend(validate_fhir_server_contract())
 
     if failures:
         print("Public artifact check failed:", file=sys.stderr)

@@ -6,7 +6,8 @@ record to HL7 FHIR R4.0.1. It generates six resource instances across four resou
 `Bundle` containing those resources.
 
 The demo is a software interoperability artifact, not a clinical record, medical device, or claim of
-conformance with a national implementation guide. It does not transmit data to a FHIR server.
+conformance with a national implementation guide. The generators are offline. A separate integration
+test sends only the tracked synthetic weekly Bundle to a disposable, runner-local HAPI server.
 
 ## Why the adapter uses an explicit normalized record
 
@@ -31,6 +32,7 @@ synthetic_normalized_record.json
   -> HL7 Validator CLI 6.10.0 (offline terminology mode in CI)
   -> deterministic fact bundle, data-quality gate, and grounded offline summary
   -> separate seven-day transaction, aggregate facts, missingness, and weekly summary
+  -> pinned ephemeral HAPI transaction + 30-resource semantic read-back check
 ```
 
 ## Mapping
@@ -58,8 +60,9 @@ The generated Bundle has `type=transaction`. Every entry contains:
 - internal Patient references rewritten to the Patient entry's `fullUrl`.
 
 The adapter checks fullUrl uniqueness, request/resource identity, and reference resolution before
-serialization. It does not POST the Bundle or assume that a target server will accept client-assigned
-logical IDs.
+serialization. It does not perform network I/O. The separate [ephemeral server test](server/README.md)
+tests the client-assigned logical IDs against one pinned HAPI configuration without implying that an
+arbitrary target server will accept them.
 
 LOINC codes are limited to the reviewed mappings above. Unsupported observation kinds fail instead of
 falling back to a guessed code. The source references are the official
@@ -114,3 +117,7 @@ fact citations and exact numeric consistency before returning a human-review-onl
 The [seven-day evidence extension](weekly/README.md) generates 30 resources across one explicit
 synthetic week. It calculates medication counts and Observation ranges without an LLM, retains every
 source fact ID and aggregation method, and returns no narrative when a day or expected event is missing.
+
+The [ephemeral HAPI round trip](server/README.md) submits that synthetic weekly Bundle inside CI,
+checks every transaction response, reads all 30 resources back, and permits only documented
+server-managed metadata and reference-resolution differences.

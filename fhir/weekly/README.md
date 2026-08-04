@@ -1,8 +1,10 @@
 # Seven-day synthetic FHIR evidence
 
 This directory extends the one-day FHIR R4 interoperability demo to an explicit seven-day window.
-It remains synthetic, offline, descriptive, and human-review-only. No record is sent to a FHIR
-server and no value is interpreted as diagnosis, treatment evidence, or a medication effect.
+Generation and summary remain synthetic, offline, descriptive, and human-review-only. The tracked
+Bundle is also sent to a disposable, runner-local HAPI server by a separate integration test; no
+participant or production record is sent. No value is interpreted as diagnosis, treatment evidence,
+or a medication effect.
 
 ## Reviewed input contract
 
@@ -32,6 +34,10 @@ The generator refuses to infer a missing adherence value or Observation value.
 The transaction keeps deterministic `urn:uuid` fullUrls, matching `PUT ResourceType/id` requests,
 and resolvable Patient references. CI validates it independently with HL7 Validator CLI in offline
 terminology mode.
+
+The separate [server round-trip test](../server/README.md) submits the same Bundle to one pinned HAPI
+R4 image, reads every resource back, and verifies exact semantic preservation under a narrow,
+documented normalization allowlist.
 
 ## Aggregate methods
 
@@ -65,5 +71,6 @@ PYTHONPATH=src python -m unittest tests.test_fhir_weekly -v
 FHIR_VALIDATOR_JAR=/path/to/validator_cli.jar scripts/validate_fhir_r4.sh
 ```
 
-This is base FHIR R4 software evidence, not terminology-server, NZ Base, NZ Patient Summary, clinical,
-medical-device, regulatory, or target-server conformance.
+This is base FHIR R4 software evidence and one pinned-server integration check, not arbitrary-server,
+terminology-server, NZ Base, NZ Patient Summary, clinical, medical-device, security, performance,
+or regulatory conformance.

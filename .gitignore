@@ -18,6 +18,8 @@ __pycache__/
 # Reviewed deterministic seven-day FHIR evidence is synthetic and public.
 !fhir/weekly/*.json
 !fhir/weekly/generated/*.json
+# Reviewed ephemeral-server contract contains public synthetic-test metadata only.
+!fhir/server/*.json
 .env
 secret_key.txt
 

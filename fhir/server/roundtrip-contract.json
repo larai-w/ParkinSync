@@ -1,0 +1,45 @@
+{
+  "checks": [
+    "loopback URL and synthetic classification are enforced before POST",
+    "CapabilityStatement declares FHIR R4 4.0.1 and server REST mode",
+    "transaction POST returns one successful response entry per request",
+    "transaction response locations match requested ResourceType/id values",
+    "all 30 resources are readable by logical id",
+    "all read resources retain the synthetic classification tag",
+    "normalized read resources exactly match submitted semantic content"
+  ],
+  "classification": "synthetic",
+  "ephemeral_server": {
+    "base_url": "http://127.0.0.1:8080/fhir",
+    "database": "container-local H2",
+    "image": "hapiproject/hapi:v8.10.0-2",
+    "image_digest": "sha256:c5e53fb34bf39958c336837795f504673103f212e179ced14c8f7b96b585a182",
+    "network_exposure": "GitHub runner loopback only",
+    "persistence": "destroyed after each job"
+  },
+  "expected": {
+    "fhir_version": "4.0.1",
+    "resource_count": 30,
+    "resource_type_counts": {
+      "CarePlan": 1,
+      "MedicationStatement": 14,
+      "Observation": 14,
+      "Patient": 1
+    },
+    "source_bundle": "fhir/weekly/generated/bundle-synthetic-weekly-transaction-bundle.json"
+  },
+  "normalization_allowlist": [
+    "meta.lastUpdated",
+    "meta.source",
+    "meta.versionId",
+    "urn:uuid reference to matching ResourceType/id"
+  ],
+  "out_of_scope": [
+    "authentication and authorization",
+    "clinical or terminology validation",
+    "NZ Base or NZ Patient Summary conformance",
+    "performance, availability, backup, and recovery",
+    "production or arbitrary-server conformance"
+  ],
+  "schema_version": "parkinsync-fhir-roundtrip-contract-v1"
+}

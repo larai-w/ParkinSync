@@ -1,0 +1,73 @@
+name: FHIR server round trip
+
+on:
+  push:
+    branches: [main, development]
+    paths:
+      - ".github/workflows/fhir-roundtrip.yml"
+      - "fhir/**"
+      - "scripts/verify_fhir_roundtrip.py"
+      - "src/fhir_roundtrip.py"
+      - "tests/test_fhir_roundtrip.py"
+  pull_request:
+    paths:
+      - ".github/workflows/fhir-roundtrip.yml"
+      - "fhir/**"
+      - "scripts/verify_fhir_roundtrip.py"
+      - "src/fhir_roundtrip.py"
+      - "tests/test_fhir_roundtrip.py"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fhir-roundtrip-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  hapi-roundtrip:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      HAPI_IMAGE: hapiproject/hapi:v8.10.0-2@sha256:c5e53fb34bf39958c336837795f504673103f212e179ced14c8f7b96b585a182
+      REPORT_PATH: /tmp/parkinsync-fhir-roundtrip-report.json
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - name: Set up Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
+        with:
+          python-version: "3.12"
+
+      - name: Start pinned ephemeral HAPI FHIR R4 server
+        run: |
+          docker pull "$HAPI_IMAGE"
+          docker run --detach --name parkinsync-hapi \
+            --publish 127.0.0.1:8080:8080 \
+            "$HAPI_IMAGE"
+
+      - name: Verify transaction and semantic read-back
+        run: |
+          python scripts/verify_fhir_roundtrip.py \
+            --base-url http://127.0.0.1:8080/fhir \
+            --report "$REPORT_PATH" \
+            --wait-seconds 300
+          python -m json.tool "$REPORT_PATH"
+
+      - name: Upload sanitized verification evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: fhir-roundtrip-report
+          path: ${{ env.REPORT_PATH }}
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Show HAPI logs after failure
+        if: failure()
+        run: docker logs --tail 300 parkinsync-hapi
+
+      - name: Destroy ephemeral server
+        if: always()
+        run: docker rm --force parkinsync-hapi
