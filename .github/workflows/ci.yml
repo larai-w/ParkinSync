@@ -20,6 +20,9 @@ jobs:
       FHIR_VALIDATOR_VERSION: 6.10.0
       NZ_BASE_PACKAGE: fhir.org.nz.ig.base#3.1.0
       JP_CORE_PACKAGE: jpfhir.jp.core#1.2.0
+      JP_CORE_PACKAGE_TGZ: ${{ github.workspace }}/.cache/fhir-validator/jpfhir.jp.core-1.2.0.tgz
+      JP_CORE_PACKAGE_URL: https://jpfhir.jp/fhir/core/1.2.0/package.tgz
+      JP_CORE_PACKAGE_SHA256: 6094c8b9ebd975cb738c66cc999774c06a0aacf4480c068a8465e597117e52a3
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -50,6 +53,15 @@ jobs:
               "https://github.com/hapifhir/org.hl7.fhir.core/releases/download/${FHIR_VALIDATOR_VERSION}/validator_cli.jar"
           fi
           echo "$FHIR_VALIDATOR_SHA256  $FHIR_VALIDATOR_JAR" | sha256sum --check --strict
+
+      - name: Install pinned JP Core package
+        run: |
+          mkdir -p "$(dirname "$JP_CORE_PACKAGE_TGZ")"
+          if [ ! -f "$JP_CORE_PACKAGE_TGZ" ]; then
+            curl --fail --location --retry 3 --output "$JP_CORE_PACKAGE_TGZ" \
+              "$JP_CORE_PACKAGE_URL"
+          fi
+          echo "$JP_CORE_PACKAGE_SHA256  $JP_CORE_PACKAGE_TGZ" | sha256sum --check --strict
 
       - name: Install dependencies
         run: |

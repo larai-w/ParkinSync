@@ -20,6 +20,8 @@
   ],
   "generator": "scripts/generate_jpcore_fhir.py",
   "jp_core_package": "jpfhir.jp.core#1.2.0",
+  "jp_core_package_sha256": "6094c8b9ebd975cb738c66cc999774c06a0aacf4480c068a8465e597117e52a3",
+  "jp_core_package_url": "https://jpfhir.jp/fhir/core/1.2.0/package.tgz",
   "profile_counts": {
     "http://jpfhir.jp/fhir/core/StructureDefinition/JP_Observation_VitalSigns": 14,
     "http://jpfhir.jp/fhir/core/StructureDefinition/JP_Patient": 1

@@ -19,6 +19,10 @@ FHIR_VERSION = "4.0.1"
 JP_CORE_PACKAGE_ID = "jpfhir.jp.core"
 JP_CORE_PACKAGE_VERSION = "1.2.0"
 JP_CORE_PACKAGE = f"{JP_CORE_PACKAGE_ID}#{JP_CORE_PACKAGE_VERSION}"
+JP_CORE_PACKAGE_URL = "https://jpfhir.jp/fhir/core/1.2.0/package.tgz"
+JP_CORE_PACKAGE_SHA256 = (
+    "6094c8b9ebd975cb738c66cc999774c06a0aacf4480c068a8465e597117e52a3"
+)
 JP_PATIENT_PROFILE = "http://jpfhir.jp/fhir/core/StructureDefinition/JP_Patient"
 JP_VITAL_SIGNS_PROFILE = (
     "http://jpfhir.jp/fhir/core/StructureDefinition/JP_Observation_VitalSigns"
@@ -116,6 +120,8 @@ def render_jpcore_outputs(source_bundle: dict[str, Any]) -> dict[str, str]:
         "files": [JP_CORE_BUNDLE_FILE],
         "generator": "scripts/generate_jpcore_fhir.py",
         "jp_core_package": JP_CORE_PACKAGE,
+        "jp_core_package_sha256": JP_CORE_PACKAGE_SHA256,
+        "jp_core_package_url": JP_CORE_PACKAGE_URL,
         "profile_counts": {
             JP_PATIENT_PROFILE: 1,
             JP_VITAL_SIGNS_PROFILE: 14,

@@ -9,6 +9,8 @@ from fhir_jpcore import (
     JP_CORE_BUNDLE_FILE,
     JP_CORE_BUNDLE_ID,
     JP_CORE_PACKAGE,
+    JP_CORE_PACKAGE_SHA256,
+    JP_CORE_PACKAGE_URL,
     JP_PATIENT_PROFILE,
     JP_VITAL_SIGNS_PROFILE,
     build_jpcore_bundle,
@@ -115,6 +117,10 @@ class JpCoreFhirTests(unittest.TestCase):
         manifest = json.loads(render_jpcore_outputs(self.source)["manifest.json"])
 
         self.assertEqual(manifest["jp_core_package"], JP_CORE_PACKAGE)
+        self.assertEqual(manifest["jp_core_package_url"], JP_CORE_PACKAGE_URL)
+        self.assertEqual(
+            manifest["jp_core_package_sha256"], JP_CORE_PACKAGE_SHA256
+        )
         self.assertEqual(manifest["profiled_resource_count"], 15)
         self.assertEqual(
             manifest["base_only_resource_type_counts"],

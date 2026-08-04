@@ -680,6 +680,14 @@ def validate_jpcore_artifacts() -> list[str]:
         failures.append("JP Core manifest must declare FHIR R4 4.0.1")
     if manifest.get("jp_core_package") != "jpfhir.jp.core#1.2.0":
         failures.append("JP Core manifest must pin the reviewed release package")
+    if manifest.get("jp_core_package_url") != (
+        "https://jpfhir.jp/fhir/core/1.2.0/package.tgz"
+    ):
+        failures.append("JP Core manifest must pin the official package URL")
+    if manifest.get("jp_core_package_sha256") != (
+        "6094c8b9ebd975cb738c66cc999774c06a0aacf4480c068a8465e597117e52a3"
+    ):
+        failures.append("JP Core manifest must pin the reviewed package digest")
     if manifest.get("source_bundle") != source_path.as_posix():
         failures.append("JP Core manifest source Bundle is not reviewed")
 
@@ -771,6 +779,8 @@ def validate_jpcore_artifacts() -> list[str]:
         return failures
     required_text = (
         "jpfhir.jp.core#1.2.0",
+        "https://jpfhir.jp/fhir/core/1.2.0/package.tgz",
+        "6094c8b9ebd975cb738c66cc999774c06a0aacf4480c068a8465e597117e52a3",
         "-tx n/a",
         "scripts/validate_fhir_jpcore.sh",
         "scripts/generate_jpcore_fhir.py --check",
