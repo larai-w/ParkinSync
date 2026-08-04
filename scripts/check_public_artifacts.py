@@ -688,6 +688,17 @@ def validate_jpcore_artifacts() -> list[str]:
         "6094c8b9ebd975cb738c66cc999774c06a0aacf4480c068a8465e597117e52a3"
     ):
         failures.append("JP Core manifest must pin the reviewed package digest")
+    if manifest.get("jp_terminology_package") != "jpfhir-terminology#1.4.0":
+        failures.append("JP Core manifest must pin the terminology dependency")
+    if manifest.get("jp_terminology_package_url") != (
+        "https://jpfhir.jp/fhir/core/terminology/"
+        "jpfhir-terminology.r4-1.4.0.tgz"
+    ):
+        failures.append("JP Core manifest must pin the terminology package URL")
+    if manifest.get("jp_terminology_package_sha256") != (
+        "cfeb76457774d5a4bf1eb907cb60d083b0dedf04cb92405effa6b4aeaf68d21f"
+    ):
+        failures.append("JP Core manifest must pin the terminology package digest")
     if manifest.get("source_bundle") != source_path.as_posix():
         failures.append("JP Core manifest source Bundle is not reviewed")
 
@@ -781,6 +792,8 @@ def validate_jpcore_artifacts() -> list[str]:
         "jpfhir.jp.core#1.2.0",
         "https://jpfhir.jp/fhir/core/1.2.0/package.tgz",
         "6094c8b9ebd975cb738c66cc999774c06a0aacf4480c068a8465e597117e52a3",
+        "jpfhir-terminology.r4-1.4.0.tgz",
+        "cfeb76457774d5a4bf1eb907cb60d083b0dedf04cb92405effa6b4aeaf68d21f",
         "-tx n/a",
         "scripts/validate_fhir_jpcore.sh",
         "scripts/generate_jpcore_fhir.py --check",

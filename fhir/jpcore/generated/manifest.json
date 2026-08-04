@@ -22,6 +22,9 @@
   "jp_core_package": "jpfhir.jp.core#1.2.0",
   "jp_core_package_sha256": "6094c8b9ebd975cb738c66cc999774c06a0aacf4480c068a8465e597117e52a3",
   "jp_core_package_url": "https://jpfhir.jp/fhir/core/1.2.0/package.tgz",
+  "jp_terminology_package": "jpfhir-terminology#1.4.0",
+  "jp_terminology_package_sha256": "cfeb76457774d5a4bf1eb907cb60d083b0dedf04cb92405effa6b4aeaf68d21f",
+  "jp_terminology_package_url": "https://jpfhir.jp/fhir/core/terminology/jpfhir-terminology.r4-1.4.0.tgz",
   "profile_counts": {
     "http://jpfhir.jp/fhir/core/StructureDefinition/JP_Observation_VitalSigns": 14,
     "http://jpfhir.jp/fhir/core/StructureDefinition/JP_Patient": 1

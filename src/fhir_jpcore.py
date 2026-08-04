@@ -23,6 +23,13 @@ JP_CORE_PACKAGE_URL = "https://jpfhir.jp/fhir/core/1.2.0/package.tgz"
 JP_CORE_PACKAGE_SHA256 = (
     "6094c8b9ebd975cb738c66cc999774c06a0aacf4480c068a8465e597117e52a3"
 )
+JP_TERMINOLOGY_PACKAGE = "jpfhir-terminology#1.4.0"
+JP_TERMINOLOGY_PACKAGE_URL = (
+    "https://jpfhir.jp/fhir/core/terminology/jpfhir-terminology.r4-1.4.0.tgz"
+)
+JP_TERMINOLOGY_PACKAGE_SHA256 = (
+    "cfeb76457774d5a4bf1eb907cb60d083b0dedf04cb92405effa6b4aeaf68d21f"
+)
 JP_PATIENT_PROFILE = "http://jpfhir.jp/fhir/core/StructureDefinition/JP_Patient"
 JP_VITAL_SIGNS_PROFILE = (
     "http://jpfhir.jp/fhir/core/StructureDefinition/JP_Observation_VitalSigns"
@@ -122,6 +129,9 @@ def render_jpcore_outputs(source_bundle: dict[str, Any]) -> dict[str, str]:
         "jp_core_package": JP_CORE_PACKAGE,
         "jp_core_package_sha256": JP_CORE_PACKAGE_SHA256,
         "jp_core_package_url": JP_CORE_PACKAGE_URL,
+        "jp_terminology_package": JP_TERMINOLOGY_PACKAGE,
+        "jp_terminology_package_sha256": JP_TERMINOLOGY_PACKAGE_SHA256,
+        "jp_terminology_package_url": JP_TERMINOLOGY_PACKAGE_URL,
         "profile_counts": {
             JP_PATIENT_PROFILE: 1,
             JP_VITAL_SIGNS_PROFILE: 14,

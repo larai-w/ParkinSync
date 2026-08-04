@@ -23,6 +23,9 @@ jobs:
       JP_CORE_PACKAGE_TGZ: ${{ github.workspace }}/.cache/fhir-validator/jpfhir.jp.core-1.2.0.tgz
       JP_CORE_PACKAGE_URL: https://jpfhir.jp/fhir/core/1.2.0/package.tgz
       JP_CORE_PACKAGE_SHA256: 6094c8b9ebd975cb738c66cc999774c06a0aacf4480c068a8465e597117e52a3
+      JP_TERMINOLOGY_PACKAGE_TGZ: ${{ github.workspace }}/.cache/fhir-validator/jpfhir-terminology.r4-1.4.0.tgz
+      JP_TERMINOLOGY_PACKAGE_URL: https://jpfhir.jp/fhir/core/terminology/jpfhir-terminology.r4-1.4.0.tgz
+      JP_TERMINOLOGY_PACKAGE_SHA256: cfeb76457774d5a4bf1eb907cb60d083b0dedf04cb92405effa6b4aeaf68d21f
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -62,6 +65,12 @@ jobs:
               "$JP_CORE_PACKAGE_URL"
           fi
           echo "$JP_CORE_PACKAGE_SHA256  $JP_CORE_PACKAGE_TGZ" | sha256sum --check --strict
+          if [ ! -f "$JP_TERMINOLOGY_PACKAGE_TGZ" ]; then
+            curl --fail --location --retry 3 --output "$JP_TERMINOLOGY_PACKAGE_TGZ" \
+              "$JP_TERMINOLOGY_PACKAGE_URL"
+          fi
+          echo "$JP_TERMINOLOGY_PACKAGE_SHA256  $JP_TERMINOLOGY_PACKAGE_TGZ" | \
+            sha256sum --check --strict
 
       - name: Install dependencies
         run: |

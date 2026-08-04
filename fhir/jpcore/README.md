@@ -59,9 +59,10 @@ do not exist in the source.
 ## Evidence and run
 
 [`generated/manifest.json`](generated/manifest.json) pins the package ID, official download URL,
-package SHA-256, source and derivative SHA-256 digests, exact profile counts, excluded inferences, and
-validation scope. JP Core 1.2.0 is not currently resolvable through the standard FHIR package
-registries, so CI downloads the official `jpfhir.jp` package and verifies its digest before validation.
+package SHA-256, the required `jpfhir-terminology` 1.4.0 package and digest, source and derivative
+SHA-256 digests, exact profile counts, excluded inferences, and validation scope. These Japanese
+packages are not currently resolvable through the standard FHIR package registries, so CI downloads
+both official `jpfhir.jp` archives and verifies their digests before validation.
 
 ```bash
 PYTHONPATH=src python scripts/generate_jpcore_fhir.py --check
@@ -71,6 +72,7 @@ PYTHONPATH=src python -m unittest tests.test_fhir_jpcore -v
 FHIR_VALIDATOR_JAR=/path/to/validator_cli.jar \
   JP_CORE_PACKAGE='jpfhir.jp.core#1.2.0' \
   JP_CORE_PACKAGE_TGZ=/path/to/verified/package.tgz \
+  JP_TERMINOLOGY_PACKAGE_TGZ=/path/to/verified/jpfhir-terminology.r4-1.4.0.tgz \
   scripts/validate_fhir_jpcore.sh
 ```
 
