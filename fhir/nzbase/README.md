@@ -61,6 +61,20 @@ The validator loads the pinned published package and runs with `-tx n/a`; no pub
 server is queried. CI caches downloaded FHIR packages and still verifies the package version on every
 run.
 
+### Validator result and warning boundary
+
+The first pinned-package [CI validation](https://github.com/larai-w/ParkinSync/actions/runs/30869044857)
+completed with **0 errors, 79 warnings, and 74 notes**. The warnings are retained rather than hidden:
+
+- UCUM and NZMT terminology cannot be fully checked while the public terminology server is disabled;
+- `DomainResource.text` narrative is a FHIR best-practice recommendation, not a profile requirement;
+- Observation performer is recommended, but the synthetic source has no factual performer; and
+- the local synthetic-classification code system is intentionally outside the NZ Base package.
+
+These are explicit evidence limitations. The demo does not invent an NZMT code, performer, narrative,
+or demographic fact merely to reduce warning counts. A future terminology-enabled validation track
+requires a separately approved server, licensing, privacy, and reproducibility decision.
+
 ## Conformance boundary
 
 This proves instance validation for the declared `NzPatient` and `NzMedicationStatement` profiles
