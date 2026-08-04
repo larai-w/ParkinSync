@@ -39,7 +39,8 @@ used by both JP Core and NZ Base:
 - the only permitted differences are a derivative Bundle ID, exact `meta.profile` declarations, and
   the jurisdiction's explicitly reviewed overlay; and
 - references, transaction requests, IDs, observations, medications, and care-plan content remain
-  byte-for-byte equivalent after removing those declarations.
+  byte-for-byte equivalent after removing the profile declarations and explicitly reviewed
+  structural overlay.
 
 Country-specific modules retain their own no-inference checks because NHI/NZMT and Japanese
 identifier/terminology boundaries are not interchangeable.

@@ -110,9 +110,10 @@ without relying on a public terminology server.
 The base artifacts in this directory are not implementation-guide or terminology-server validation,
 clinical review, or regulatory certification. Separate [NZ Base](nzbase/README.md) and
 [JP Core](jpcore/README.md) tracks derive synthetic Bundles through one shared fail-closed overlay
-contract. Each jurisdiction keeps a distinct profile map, structural overlay, and no-inference boundary. National patient
-summaries, identity integration, terminology services, and full use-case contracts remain separate
-design and governance decisions.
+contract. Each jurisdiction keeps a distinct profile map and no-inference boundary, with a structural
+overlay only where the national profile requires one. National patient summaries, identity
+integration, terminology services, and full use-case contracts remain separate design and governance
+decisions.
 
 The separate [grounded-summary experiment](summary/README.md) consumes the validated transaction
 Bundle. It retains FHIRPath provenance, calculates data-quality findings without a model, and requires
