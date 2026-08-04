@@ -4,9 +4,10 @@ import threading
 import unittest
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from unittest.mock import patch
 from urllib.parse import urlparse
 
-from fhir_roundtrip import RoundTripError, verify_roundtrip
+from fhir_roundtrip import RoundTripError, fetch_capability, verify_roundtrip
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -154,6 +155,11 @@ class FhirRoundTripTests(unittest.TestCase):
 
         with self.assertRaisesRegex(RoundTripError, "must declare R4 4.0.1"):
             verify_roundtrip(self.base_url, self.bundle)
+
+    @patch("fhir_roundtrip.urlopen", side_effect=ConnectionResetError)
+    def test_normalizes_connection_reset_for_readiness_retry(self, _urlopen):
+        with self.assertRaisesRegex(RoundTripError, "lost the FHIR server connection"):
+            fetch_capability(self.base_url)
 
     def test_rejects_transaction_http_failure(self):
         MockFhirHandler.post_status = 422

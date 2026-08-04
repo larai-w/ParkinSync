@@ -54,6 +54,8 @@ def _request_json(
         raise RoundTripError(f"{method} {path or '/'} returned HTTP {error.code}") from error
     except URLError as error:
         raise RoundTripError(f"{method} {path or '/'} could not reach the FHIR server") from error
+    except OSError as error:
+        raise RoundTripError(f"{method} {path or '/'} lost the FHIR server connection") from error
     except (UnicodeDecodeError, json.JSONDecodeError) as error:
         raise RoundTripError(f"{method} {path or '/'} returned non-JSON content") from error
     if not isinstance(data, dict):
