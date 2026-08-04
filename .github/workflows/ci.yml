@@ -19,6 +19,7 @@ jobs:
       FHIR_VALIDATOR_SHA256: fc663ae55dd31bbfde19788dddfb49cacbeebc3c64498fa7b7779df90000434b
       FHIR_VALIDATOR_VERSION: 6.10.0
       NZ_BASE_PACKAGE: fhir.org.nz.ig.base#3.1.0
+      JP_CORE_PACKAGE: jpfhir.jp.core#1.2.0
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -39,7 +40,7 @@ jobs:
           path: |
             .cache/fhir-validator
             ~/.fhir/packages
-          key: fhir-validator-${{ runner.os }}-6.10.0-r4-4.0.1-nzbase-3.1.0
+          key: fhir-validator-${{ runner.os }}-6.10.0-r4-4.0.1-nzbase-3.1.0-jpcore-1.2.0
 
       - name: Install pinned HL7 Validator CLI
         run: |
@@ -73,11 +74,17 @@ jobs:
       - name: Check deterministic NZ Base derivative artifacts
         run: python scripts/generate_nzbase_fhir.py --check
 
+      - name: Check deterministic JP Core derivative artifacts
+        run: python scripts/generate_jpcore_fhir.py --check
+
       - name: Validate generated artifacts with HL7 Validator CLI
         run: scripts/validate_fhir_r4.sh
 
       - name: Validate NZ Base derivative with HL7 Validator CLI
         run: scripts/validate_fhir_nzbase.sh
+
+      - name: Validate JP Core derivative with HL7 Validator CLI
+        run: scripts/validate_fhir_jpcore.sh
 
       - name: Run unit tests
         run: python -m unittest discover -s tests -v

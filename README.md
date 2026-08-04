@@ -23,7 +23,8 @@ technical reviewer can follow the evidence in this order:
 | How is GenAI grounding enforced? | [`src/fhir_summary.py`](src/fhir_summary.py), [fact bundle](fhir/summary/generated/fact-bundle.json), and [offline summary](fhir/summary/generated/offline-summary.json) | Stable fact IDs, value-level FHIRPath provenance, exact-number checks, mandatory citations, and human review |
 | Does the summary cover a real seven-day evidence window? | [`src/fhir_weekly.py`](src/fhir_weekly.py), [weekly transaction Bundle](fhir/weekly/generated/bundle-synthetic-weekly-transaction-bundle.json), and [weekly summary](fhir/weekly/generated/weekly-summary.json) | 30 FHIR resources, 28 event facts, 3 traceable aggregate facts, complete daily coverage, and structured missingness |
 | Does a FHIR server accept and preserve the transaction? | [`src/fhir_roundtrip.py`](src/fhir_roundtrip.py), [round-trip contract](fhir/server/roundtrip-contract.json), and [dedicated workflow](.github/workflows/fhir-roundtrip.yml) | Pinned ephemeral HAPI R4, transaction-response checks, 30 logical-ID reads, synthetic-tag retention, and exact semantic comparison |
-| Is there jurisdiction-aware profile evidence? | [`src/fhir_nzbase.py`](src/fhir_nzbase.py), [NZ Base derivative Bundle](fhir/nzbase/generated/bundle-synthetic-weekly-nzbase-transaction-bundle.json), and [manifest](fhir/nzbase/generated/manifest.json) | Published NZ Base 3.1.0, exact `NzPatient`/`NzMedicationStatement` declarations, no invented NHI or NZMT code, and independent IG validation |
+| Is national-profile handling abstracted without erasing country differences? | [`src/fhir_jurisdiction.py`](src/fhir_jurisdiction.py), [`src/fhir_nzbase.py`](src/fhir_nzbase.py), and [`src/fhir_jpcore.py`](src/fhir_jpcore.py) | One fail-closed overlay contract, separate reviewed profile maps, and country-specific no-inference checks |
+| Does each national derivative have reproducible evidence? | [NZ Base Bundle](fhir/nzbase/generated/bundle-synthetic-weekly-nzbase-transaction-bundle.json), [NZ manifest](fhir/nzbase/generated/manifest.json), [JP Core Bundle](fhir/jpcore/generated/bundle-synthetic-weekly-jpcore-transaction-bundle.json), and [JP manifest](fhir/jpcore/generated/manifest.json) | Pinned NZ Base 3.1.0 and JP Core 1.2.0 packages, exact profile counts, source/derivative digests, and independent IG validation |
 | What happens with adversarial or incomplete input? | [`tests/test_fhir_summary.py`](tests/test_fhir_summary.py) and [evaluation cases](fhir/summary/evaluation-cases.json) | Rejection of changed numbers, uncited claims, omitted `not-taken` medication, conflicting timestamps, clinical advice, and prompt-injection text |
 | Is the evidence reproducible and continuously checked? | [CI workflow](.github/workflows/ci.yml), [latest main CI](https://github.com/larai-w/ParkinSync/actions/workflows/ci.yml?query=branch%3Amain), and [latest security baseline](https://github.com/larai-w/ParkinSync/actions/workflows/security-baseline.yml?query=branch%3Amain) | Deterministic regeneration, public-artifact policy, full test suite, HL7 Validator CLI, secret scan, and dependency audit |
 
@@ -32,10 +33,11 @@ The fixture year **2035 is intentional**: a conspicuous future date, synthetic I
 data. It is not a forecast or a real care period.
 
 **Evidence boundary:** this proves a synthetic base FHIR R4 transaction, grounded-summary software
-path, round trip through one pinned ephemeral HAPI server, and instance validation for the two
-applicable NZ Base 3.1.0 profiles. It does not claim complete NZ use-case, arbitrary-server,
-terminology-server, NZ Patient Summary, NHI integration, clinical, medical-device, treatment,
-security, performance, or regulatory conformance. No participant or production record is transmitted.
+path, round trip through one pinned ephemeral HAPI server, and bounded instance validation against
+reviewed NZ Base 3.1.0 and JP Core 1.2.0 profiles. It does not claim complete national use-case,
+arbitrary-server, terminology-server, patient-summary, identity integration, clinical,
+medical-device, treatment, security, performance, or regulatory conformance. No participant or
+production record is transmitted.
 
 ---
 
@@ -145,7 +147,7 @@ Master ledger (Google Sheets, 25-column schema)
        ├─ deterministic facts, data-quality gate, and grounded offline summary
        ├─ seven-day Bundle, aggregate facts, missingness, and weekly summary
        ├─ ephemeral HAPI transaction/read-back integration test (synthetic only)
-       └─ NZ Base 3.1.0 Patient/MedicationStatement profile validation
+       └─ shared jurisdiction overlay: NZ Base 3.1.0 + JP Core 1.2.0
 
 Secrets: AWS Secrets Manager (Google SA JSON, SwitchBot key, Weather API key)
 IaC: deploy.sh (bash) — packages Lambda zips and calls aws lambda update-function-code
@@ -192,6 +194,8 @@ tests/test_fhir_roundtrip.py        — FHIR capability, transaction response, s
                                       read-back, and fail-closed integration contracts
 tests/test_fhir_nzbase.py           — NZ Base profile overlay, no-inference boundary,
                                       manifest, and reproducibility contracts
+tests/test_fhir_jpcore.py           — JP Core profile overlay, written-guidance boundary,
+                                      manifest, and reproducibility contracts
 tests/test_readme_links.py          — reviewer-path and repository-relative link checks
 ```
 
@@ -220,6 +224,7 @@ python scripts/export_synthetic_fhir.py --check
 PYTHONPATH=src python scripts/generate_grounded_summary.py --check
 PYTHONPATH=src python scripts/generate_weekly_fhir.py --check
 PYTHONPATH=src python scripts/generate_nzbase_fhir.py --check
+PYTHONPATH=src python scripts/generate_jpcore_fhir.py --check
 
 # In-process mock server contract tests; no Docker or network required
 PYTHONPATH=src python -m unittest tests.test_fhir_roundtrip -v
@@ -243,7 +248,9 @@ src/
   fhir_summary.py              # FHIR facts, data quality, and summary claim gate
   fhir_weekly.py               # Seven-day synthetic Bundle and aggregate facts
   fhir_roundtrip.py            # FHIR transaction and semantic read-back verifier
+  fhir_jurisdiction.py         # Shared fail-closed national profile overlay contract
   fhir_nzbase.py               # Synthetic weekly Bundle -> bounded NZ Base overlay
+  fhir_jpcore.py               # Synthetic weekly Bundle -> bounded JP Core overlay
 tests/
   test_lambda_function.py      # OCR and weather unittest suite
   test_indoor_temp_logger.py   # Synthetic daily-aggregation unittest suite
@@ -252,6 +259,7 @@ tests/
   test_fhir_weekly.py          # Weekly completeness, provenance, and claim tests
   test_fhir_roundtrip.py       # FHIR server round-trip contract tests
   test_fhir_nzbase.py          # NZ Base profile and no-inference boundary tests
+  test_fhir_jpcore.py          # JP Core profile and no-inference boundary tests
 fhir/                          # Synthetic FHIR and grounded-summary evidence
 analytics/
   pd_correlation_analysis.py   # EDA / schema audit script

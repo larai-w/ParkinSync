@@ -4,13 +4,16 @@ from __future__ import annotations
 
 import hashlib
 import json
-from collections import Counter
-from copy import deepcopy
 from typing import Any
 
-from fhir.resources.bundle import Bundle
-
-from fhir_export import validate_transaction_bundle
+from fhir_jurisdiction import (
+    EXPECTED_RESOURCE_COUNTS,
+    JurisdictionProfileSpec,
+    build_profile_overlay,
+    entries,
+    validate_profile_overlay,
+    validate_reviewed_source,
+)
 
 
 FHIR_VERSION = "4.0.1"
@@ -23,7 +26,6 @@ NZ_MEDICATION_STATEMENT_PROFILE = (
 )
 NHI_SYSTEM = "https://standards.digital.health.nz/ns/nhi-id"
 SYNTHETIC_IDENTIFIER_SYSTEM = "https://veai.jp/fhir/synthetic-patient"
-CLASSIFICATION_SYSTEM = "https://veai.jp/fhir/CodeSystem/data-classification"
 NZ_BASE_BUNDLE_ID = "synthetic-weekly-nzbase-transaction-bundle"
 NZ_BASE_BUNDLE_FILE = f"bundle-{NZ_BASE_BUNDLE_ID}.json"
 
@@ -31,105 +33,37 @@ PROFILE_BY_RESOURCE_TYPE = {
     "Patient": NZ_PATIENT_PROFILE,
     "MedicationStatement": NZ_MEDICATION_STATEMENT_PROFILE,
 }
-EXPECTED_RESOURCE_COUNTS = {
-    "CarePlan": 1,
-    "MedicationStatement": 14,
-    "Observation": 14,
-    "Patient": 1,
-}
+NZ_BASE_SPEC = JurisdictionProfileSpec(
+    label="NZ Base",
+    bundle_id=NZ_BASE_BUNDLE_ID,
+    profile_by_resource_type=PROFILE_BY_RESOURCE_TYPE,
+)
 
 
 def _serialize(payload: dict[str, Any]) -> str:
     return json.dumps(payload, indent=2, sort_keys=True) + "\n"
 
 
-def _has_synthetic_tag(resource: dict[str, Any]) -> bool:
-    return any(
-        tag.get("system") == CLASSIFICATION_SYSTEM and tag.get("code") == "synthetic"
-        for tag in resource.get("meta", {}).get("tag", [])
-        if isinstance(tag, dict)
-    )
-
-
-def _entries(bundle: dict[str, Any]) -> list[dict[str, Any]]:
-    entries = bundle.get("entry")
-    if not isinstance(entries, list) or not entries:
-        raise ValueError("FHIR transaction Bundle must contain entries")
-    if any(not isinstance(entry, dict) for entry in entries):
-        raise ValueError("FHIR transaction Bundle entries must be objects")
-    return entries
-
-
 def validate_source_bundle(bundle: dict[str, Any]) -> None:
     """Require the reviewed weekly synthetic transaction before applying profiles."""
-    if bundle.get("resourceType") != "Bundle" or bundle.get("type") != "transaction":
-        raise ValueError("NZ Base source must be a transaction Bundle")
-    if bundle.get("id") != "synthetic-weekly-transaction-bundle":
-        raise ValueError("NZ Base source Bundle id is not the reviewed weekly id")
-    if not _has_synthetic_tag(bundle):
-        raise ValueError("NZ Base source Bundle must be classified as synthetic")
-
-    counts: Counter[str] = Counter()
-    for entry in _entries(bundle):
-        resource = entry.get("resource")
-        if not isinstance(resource, dict):
-            raise ValueError("NZ Base source entry must contain a resource")
-        resource_type = resource.get("resourceType")
-        counts[resource_type] += 1
-        if not _has_synthetic_tag(resource):
-            raise ValueError(
-                f"NZ Base source resource is not classified as synthetic: {resource_type}"
-            )
-        if resource.get("meta", {}).get("profile"):
-            raise ValueError("NZ Base source resources must not predeclare profiles")
-    if dict(counts) != EXPECTED_RESOURCE_COUNTS:
-        raise ValueError("NZ Base source resource counts do not match the reviewed contract")
-    validate_transaction_bundle(Bundle.parse_obj(bundle))
+    validate_reviewed_source(bundle, "NZ Base")
 
 
 def build_nzbase_bundle(source_bundle: dict[str, Any]) -> dict[str, Any]:
     """Add only the two NZ Base profiles available for ParkinSync resource types."""
-    validate_source_bundle(source_bundle)
-    bundle = deepcopy(source_bundle)
-    bundle["id"] = NZ_BASE_BUNDLE_ID
-    for entry in bundle["entry"]:
-        resource = entry["resource"]
-        profile = PROFILE_BY_RESOURCE_TYPE.get(resource["resourceType"])
-        if profile:
-            resource.setdefault("meta", {})["profile"] = [profile]
-    validate_nzbase_bundle(bundle)
+    bundle = build_profile_overlay(source_bundle, NZ_BASE_SPEC)
+    validate_nzbase_bundle(bundle, source_bundle)
     return bundle
 
 
-def validate_nzbase_bundle(bundle: dict[str, Any]) -> None:
+def validate_nzbase_bundle(
+    bundle: dict[str, Any], source_bundle: dict[str, Any]
+) -> None:
     """Enforce the exact profile, identity, and no-inference boundary."""
-    if bundle.get("resourceType") != "Bundle" or bundle.get("type") != "transaction":
-        raise ValueError("NZ Base derivative must be a transaction Bundle")
-    if bundle.get("id") != NZ_BASE_BUNDLE_ID:
-        raise ValueError("NZ Base derivative Bundle id is not reviewed")
-    if not _has_synthetic_tag(bundle):
-        raise ValueError("NZ Base derivative Bundle must be classified as synthetic")
-
-    counts: Counter[str] = Counter()
-    profile_counts: Counter[str] = Counter()
-    for entry in _entries(bundle):
+    profile_counts = validate_profile_overlay(source_bundle, bundle, NZ_BASE_SPEC)
+    for entry in entries(bundle):
         resource = entry.get("resource")
-        if not isinstance(resource, dict):
-            raise ValueError("NZ Base derivative entry must contain a resource")
         resource_type = resource.get("resourceType")
-        counts[resource_type] += 1
-        if not _has_synthetic_tag(resource):
-            raise ValueError(f"NZ Base derivative lost synthetic tag: {resource_type}")
-
-        expected_profile = PROFILE_BY_RESOURCE_TYPE.get(resource_type)
-        profiles = resource.get("meta", {}).get("profile", [])
-        if expected_profile:
-            if profiles != [expected_profile]:
-                raise ValueError(f"NZ Base profile declaration is invalid: {resource_type}")
-            profile_counts[expected_profile] += 1
-        elif profiles:
-            raise ValueError(f"NZ Base has no reviewed profile for {resource_type}")
-
         if resource_type == "Patient":
             if resource.get("extension"):
                 raise ValueError("NZ-specific Patient extensions must not be inferred")
@@ -145,15 +79,12 @@ def validate_nzbase_bundle(bundle: dict[str, Any]) -> None:
             if medication.get("coding"):
                 raise ValueError("NZMT medication coding must not be inferred")
 
-    if dict(counts) != EXPECTED_RESOURCE_COUNTS:
-        raise ValueError("NZ Base derivative resource counts do not match the reviewed contract")
     expected_profile_counts = {
         NZ_MEDICATION_STATEMENT_PROFILE: 14,
         NZ_PATIENT_PROFILE: 1,
     }
     if dict(profile_counts) != expected_profile_counts:
         raise ValueError("NZ Base derivative profile counts do not match the reviewed contract")
-    validate_transaction_bundle(Bundle.parse_obj(bundle))
 
 
 def render_nzbase_outputs(source_bundle: dict[str, Any]) -> dict[str, str]:

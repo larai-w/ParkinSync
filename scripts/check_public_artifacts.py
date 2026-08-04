@@ -37,6 +37,9 @@ FHIR_ROUNDTRIP_WORKFLOW_PATH = Path(".github/workflows/fhir-roundtrip.yml")
 NZ_BASE_OUTPUT_DIR = Path("fhir/nzbase/generated")
 NZ_BASE_MANIFEST_PATH = NZ_BASE_OUTPUT_DIR / "manifest.json"
 NZ_BASE_VALIDATOR_PATH = Path("scripts/validate_fhir_nzbase.sh")
+JP_CORE_OUTPUT_DIR = Path("fhir/jpcore/generated")
+JP_CORE_MANIFEST_PATH = JP_CORE_OUTPUT_DIR / "manifest.json"
+JP_CORE_VALIDATOR_PATH = Path("scripts/validate_fhir_jpcore.sh")
 CI_WORKFLOW_PATH = Path(".github/workflows/ci.yml")
 
 REVIEW_REQUIRED_SUFFIXES = {
@@ -658,6 +661,126 @@ def validate_nzbase_artifacts() -> list[str]:
     return failures
 
 
+def validate_jpcore_artifacts() -> list[str]:
+    failures: list[str] = []
+    source_path = WEEKLY_OUTPUT_DIR / "bundle-synthetic-weekly-transaction-bundle.json"
+    try:
+        source = json.loads(source_path.read_text(encoding="utf-8"))
+        manifest = json.loads(JP_CORE_MANIFEST_PATH.read_text(encoding="utf-8"))
+        bundle_path = JP_CORE_OUTPUT_DIR / manifest["bundle_file"]
+        bundle = json.loads(bundle_path.read_text(encoding="utf-8"))
+    except (KeyError, json.JSONDecodeError, OSError) as error:
+        return [f"cannot validate JP Core artifacts: {error}"]
+
+    if manifest.get("schema_version") != "parkinsync-fhir-jpcore-v1":
+        failures.append("JP Core manifest schema version is not reviewed")
+    if manifest.get("classification") != "synthetic":
+        failures.append("JP Core manifest must be classified as synthetic")
+    if manifest.get("fhir_release") != "4.0.1":
+        failures.append("JP Core manifest must declare FHIR R4 4.0.1")
+    if manifest.get("jp_core_package") != "jpfhir.jp.core#1.2.0":
+        failures.append("JP Core manifest must pin the reviewed release package")
+    if manifest.get("source_bundle") != source_path.as_posix():
+        failures.append("JP Core manifest source Bundle is not reviewed")
+
+    source_content = json.dumps(source, indent=2, sort_keys=True) + "\n"
+    if manifest.get("source_bundle_sha256") != hashlib.sha256(
+        source_content.encode("utf-8")
+    ).hexdigest():
+        failures.append("JP Core manifest source Bundle digest does not match")
+    bundle_content = json.dumps(bundle, indent=2, sort_keys=True) + "\n"
+    if manifest.get("sha256", {}).get(bundle_path.name) != hashlib.sha256(
+        bundle_content.encode("utf-8")
+    ).hexdigest():
+        failures.append("JP Core manifest derivative Bundle digest does not match")
+
+    actual_names = sorted(path.name for path in JP_CORE_OUTPUT_DIR.glob("*.json"))
+    expected_names = sorted([*manifest.get("files", []), "manifest.json"])
+    if actual_names != expected_names:
+        failures.append("JP Core manifest file list does not match generated artifacts")
+    if bundle.get("resourceType") != "Bundle" or bundle.get("type") != "transaction":
+        failures.append("JP Core derivative must be a transaction Bundle")
+    if bundle.get("id") != "synthetic-weekly-jpcore-transaction-bundle":
+        failures.append("JP Core derivative Bundle id is not reviewed")
+
+    patient_profile = "http://jpfhir.jp/fhir/core/StructureDefinition/JP_Patient"
+    vital_signs_profile = (
+        "http://jpfhir.jp/fhir/core/StructureDefinition/JP_Observation_VitalSigns"
+    )
+    expected_profiles = {
+        "Patient": [patient_profile],
+        "Observation": [vital_signs_profile],
+    }
+    found_counts: dict[str, int] = {}
+    profile_counts: dict[str, int] = {}
+    for entry in bundle.get("entry", []):
+        resource = entry.get("resource", {})
+        resource_type = resource.get("resourceType")
+        found_counts[resource_type] = found_counts.get(resource_type, 0) + 1
+        profiles = resource.get("meta", {}).get("profile", [])
+        if resource_type in expected_profiles:
+            if profiles != expected_profiles[resource_type]:
+                failures.append(f"JP Core profile declaration is invalid: {resource_type}")
+            for profile in profiles:
+                profile_counts[profile] = profile_counts.get(profile, 0) + 1
+        elif profiles:
+            failures.append(f"unreviewed JP Core profile declared for {resource_type}")
+        if resource_type == "Patient":
+            identifiers = resource.get("identifier", [])
+            if identifiers != [
+                {
+                    "system": "https://veai.jp/fhir/synthetic-patient",
+                    "use": "temp",
+                    "value": "SYNTHETIC-WEEKLY-001",
+                }
+            ]:
+                failures.append("JP Core Patient identifier is not the reviewed synthetic value")
+            if resource.get("extension"):
+                failures.append("JP Core synthetic Patient must not infer extensions")
+        if resource_type == "MedicationStatement" and resource.get(
+            "medicationCodeableConcept", {}
+        ).get("coding"):
+            failures.append("JP Core synthetic medication must not infer coding")
+
+    expected_counts = {
+        "CarePlan": 1,
+        "MedicationStatement": 14,
+        "Observation": 14,
+        "Patient": 1,
+    }
+    if found_counts != expected_counts or manifest.get("resource_type_counts") != expected_counts:
+        failures.append("JP Core derivative resource counts are not reviewed")
+    if profile_counts != manifest.get("profile_counts"):
+        failures.append("JP Core profile counts do not match the manifest")
+
+    expected = json.loads(json.dumps(source))
+    expected["id"] = "synthetic-weekly-jpcore-transaction-bundle"
+    for entry in expected.get("entry", []):
+        resource = entry.get("resource", {})
+        profile = expected_profiles.get(resource.get("resourceType"))
+        if profile:
+            resource.setdefault("meta", {})["profile"] = profile
+    if bundle != expected:
+        failures.append("JP Core derivative changes content beyond the reviewed profile overlay")
+
+    try:
+        validator = JP_CORE_VALIDATOR_PATH.read_text(encoding="utf-8")
+        workflow = CI_WORKFLOW_PATH.read_text(encoding="utf-8")
+    except OSError as error:
+        failures.append(f"cannot validate JP Core CI contract: {error}")
+        return failures
+    required_text = (
+        "jpfhir.jp.core#1.2.0",
+        "-tx n/a",
+        "scripts/validate_fhir_jpcore.sh",
+        "scripts/generate_jpcore_fhir.py --check",
+    )
+    combined = validator + "\n" + workflow
+    if any(value not in combined for value in required_text):
+        failures.append("JP Core CI does not match the reviewed package and offline contract")
+    return failures
+
+
 def main() -> int:
     failures: list[str] = []
     tracked_or_untracked = set(candidate_files())
@@ -698,6 +821,8 @@ def main() -> int:
         failures.extend(validate_fhir_server_contract())
     if NZ_BASE_MANIFEST_PATH in tracked_or_untracked:
         failures.extend(validate_nzbase_artifacts())
+    if JP_CORE_MANIFEST_PATH in tracked_or_untracked:
+        failures.extend(validate_jpcore_artifacts())
 
     if failures:
         print("Public artifact check failed:", file=sys.stderr)

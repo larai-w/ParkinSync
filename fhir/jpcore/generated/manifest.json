@@ -1,0 +1,43 @@
+{
+  "artifact_count": 1,
+  "base_only_resource_type_counts": {
+    "CarePlan": 1,
+    "MedicationStatement": 14
+  },
+  "bundle_file": "bundle-synthetic-weekly-jpcore-transaction-bundle.json",
+  "classification": "synthetic",
+  "excluded_inferences": [
+    "Japanese patient identifier",
+    "name, address, sex, birth date, or other demographics",
+    "YJ, HOT, GS1, or local medication coding",
+    "JP Core terminology coding",
+    "performer or institution",
+    "diagnosis or treatment meaning"
+  ],
+  "fhir_release": "4.0.1",
+  "files": [
+    "bundle-synthetic-weekly-jpcore-transaction-bundle.json"
+  ],
+  "generator": "scripts/generate_jpcore_fhir.py",
+  "jp_core_package": "jpfhir.jp.core#1.2.0",
+  "profile_counts": {
+    "http://jpfhir.jp/fhir/core/StructureDefinition/JP_Observation_VitalSigns": 14,
+    "http://jpfhir.jp/fhir/core/StructureDefinition/JP_Patient": 1
+  },
+  "profiled_resource_count": 15,
+  "resource_count": 30,
+  "resource_type_counts": {
+    "CarePlan": 1,
+    "MedicationStatement": 14,
+    "Observation": 14,
+    "Patient": 1
+  },
+  "schema_version": "parkinsync-fhir-jpcore-v1",
+  "sha256": {
+    "bundle-synthetic-weekly-jpcore-transaction-bundle.json": "c144298ed35b81679f18d2840613ac30aabc177522c2ac83008c8a5a394e75f7"
+  },
+  "source_bundle": "fhir/weekly/generated/bundle-synthetic-weekly-transaction-bundle.json",
+  "source_bundle_id": "synthetic-weekly-transaction-bundle",
+  "source_bundle_sha256": "adb806a209c503653d0349eee981300d1d09506c941ef1277c280cb52a0ddbd3",
+  "validation_scope": "instance validation for JP_Patient and JP_Observation_VitalSigns against the pinned JP Core package; MedicationStatement and CarePlan remain base FHIR R4"
+}

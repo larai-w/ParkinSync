@@ -42,6 +42,10 @@ class ReadmeLinkTests(unittest.TestCase):
             "src/fhir_nzbase.py",
             "fhir/nzbase/generated/bundle-synthetic-weekly-nzbase-transaction-bundle.json",
             "fhir/nzbase/generated/manifest.json",
+            "src/fhir_jurisdiction.py",
+            "src/fhir_jpcore.py",
+            "fhir/jpcore/generated/bundle-synthetic-weekly-jpcore-transaction-bundle.json",
+            "fhir/jpcore/generated/manifest.json",
             ".github/workflows/ci.yml",
         }
 

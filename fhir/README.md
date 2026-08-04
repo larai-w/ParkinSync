@@ -33,7 +33,9 @@ synthetic_normalized_record.json
   -> deterministic fact bundle, data-quality gate, and grounded offline summary
   -> separate seven-day transaction, aggregate facts, missingness, and weekly summary
   -> pinned ephemeral HAPI transaction + 30-resource semantic read-back check
-  -> separate NZ Base 3.1.0 Patient/MedicationStatement profile-validation track
+  -> shared jurisdiction overlay contract
+       -> NZ Base 3.1.0 Patient/MedicationStatement validation
+       -> JP Core 1.2.0 Patient/VitalSigns Observation validation
 ```
 
 ## Mapping
@@ -106,11 +108,11 @@ validator runs with `-tx n/a`, so the gate covers base R4 parsing, structure, an
 without relying on a public terminology server.
 
 The base artifacts in this directory are not implementation-guide or terminology-server validation,
-clinical review, or regulatory certification. The separate [NZ Base track](nzbase/README.md) derives
-a synthetic Bundle and validates only the applicable `NzPatient` and `NzMedicationStatement` profiles
-against published NZ Base 3.1.0. NZPS is a document Bundle built around a Composition, whereas this
-demo intentionally produces an API transaction Bundle. A shared-care or patient-summary use case,
-NHI integration, and its full implementation contract remain separate design and governance decisions.
+clinical review, or regulatory certification. Separate [NZ Base](nzbase/README.md) and
+[JP Core](jpcore/README.md) tracks derive synthetic Bundles through one shared fail-closed overlay
+contract. Each jurisdiction keeps a distinct profile map and no-inference boundary. National patient
+summaries, identity integration, terminology services, and full use-case contracts remain separate
+design and governance decisions.
 
 The separate [grounded-summary experiment](summary/README.md) consumes the validated transaction
 Bundle. It retains FHIRPath provenance, calculates data-quality findings without a model, and requires
@@ -127,3 +129,7 @@ server-managed metadata and reference-resolution differences.
 The [NZ Base profile-validation track](nzbase/README.md) adds only reviewed `meta.profile`
 declarations to a derivative of the weekly Bundle. It explicitly leaves Observation and CarePlan at
 base R4 and refuses to fabricate an NHI, NZ-specific demographics, or NZMT coding.
+
+The [JP Core profile-validation track](jpcore/README.md) applies the same shared overlay contract to
+Patient and VitalSigns Observation. It leaves MedicationStatement at base R4 because the written JP
+Core guidance requires Japanese medication coding that the source does not contain.

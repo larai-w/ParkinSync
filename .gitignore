@@ -23,6 +23,9 @@ __pycache__/
 # Reviewed NZ Base derivative artifacts contain synthetic records only.
 !fhir/nzbase/*.json
 !fhir/nzbase/generated/*.json
+# Reviewed JP Core derivative artifacts contain synthetic records only.
+!fhir/jpcore/*.json
+!fhir/jpcore/generated/*.json
 .env
 secret_key.txt
 
