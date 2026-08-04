@@ -25,7 +25,7 @@
 		"productPage": "https://veai.jp/apps/parkinsync/",
 		"project": "https://github.com/users/larai-w/projects/4"
 	},
-	"lastVerified": "2026-07-31",
+	"lastVerified": "2026-08-04",
 	"site": {
 		"status": "research-prototype",
 		"order": 5,
@@ -85,6 +85,42 @@
 			]
 		},
 		{
+			"id": "synthetic-fhir-r4",
+			"label": {
+				"en": "Synthetic HL7 FHIR R4 export and grounded seven-day summary",
+				"ja": "合成HL7 FHIR R4出力と根拠追跡付き7日要約"
+			},
+			"status": "implemented",
+			"evidenceUrls": [
+				"https://github.com/larai-w/ParkinSync#five-minute-fhir-review",
+				"https://github.com/larai-w/ParkinSync/tree/main/fhir"
+			]
+		},
+		{
+			"id": "jurisdiction-profile-overlays",
+			"label": {
+				"en": "Bounded NZ Base 3.1.0 and JP Core 1.2.0 profile derivatives",
+				"ja": "限定的なNZ Base 3.1.0・JP Core 1.2.0プロファイル派生"
+			},
+			"status": "implemented",
+			"evidenceUrls": [
+				"https://github.com/larai-w/ParkinSync/tree/main/fhir/nzbase",
+				"https://github.com/larai-w/ParkinSync/tree/main/fhir/jpcore"
+			]
+		},
+		{
+			"id": "ephemeral-fhir-server-roundtrip",
+			"label": {
+				"en": "Synthetic transaction and read-back through an ephemeral HAPI R4 server",
+				"ja": "一時HAPI R4サーバーを使った合成transaction・読み戻し試験"
+			},
+			"status": "implemented",
+			"evidenceUrls": [
+				"https://github.com/larai-w/ParkinSync/blob/main/.github/workflows/fhir-roundtrip.yml",
+				"https://github.com/larai-w/ParkinSync/tree/main/fhir/server"
+			]
+		},
+		{
 			"id": "multi-source-readiness-report",
 			"label": {
 				"en": "Thirty-day multi-source data-readiness report",
@@ -111,11 +147,15 @@
 		"en": [
 			"Caregiver observations are high-context reference data, not automatic clinical ground truth.",
 			"Exploratory associations must not be presented as diagnosis, treatment advice, or causal findings.",
+			"FHIR artifacts use synthetic data and demonstrate a bounded offline mapping; they do not claim production, clinical, regulatory, or complete national-profile conformance.",
+			"The HAPI round-trip server is ephemeral and runner-local; the real exported-record thirty-day readiness gate remains separate.",
 			"The current operational context is private and does not provide public self-service access."
 		],
 		"ja": [
 			"介護者の観察は文脈の豊富な参照データであり、自動的に臨床的正解とはみなしません。",
 			"探索的な関連を診断、治療助言、因果関係として表現しません。",
+			"FHIR成果物は合成データによる限定的なオフライン変換の実証であり、本番・臨床・規制対応・国別プロファイルへの完全準拠を主張しません。",
+			"HAPI往復試験はrunner内の一時サーバーを使用し、実export recordsによる30日readiness gateとは分離しています。",
 			"現在は非公開の運用であり、一般向けセルフサービスではありません。"
 		]
 	}
