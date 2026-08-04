@@ -86,8 +86,12 @@ FHIR_VALIDATOR_JAR=/path/to/validator_cli.jar \
   scripts/validate_fhir_jpcore.sh
 ```
 
-The validator runs with `-tx n/a`; no public terminology server receives the Bundle. Warnings remain
-visible and are documented after the first main-branch CI run.
+The validator runs with `-tx n/a`; no public terminology server receives the Bundle. The first
+successful main-branch run reported **0 errors, 30 warnings, and 101 notes** with HL7 Validator CLI
+6.10.0. The warnings are retained rather than suppressed: they cover absent generated narrative and
+the intentionally absent Observation performer. Notes cover offline terminology limits, the local
+synthetic-classification CodeSystem, and additional base-profile slice information. None are treated
+as evidence of clinical, terminology-server, or production conformance.
 
 ## Conformance boundary
 
