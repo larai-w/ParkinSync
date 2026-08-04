@@ -11,6 +11,7 @@ from fhir_jpcore import (
     JP_CORE_PACKAGE,
     JP_CORE_PACKAGE_SHA256,
     JP_CORE_PACKAGE_URL,
+    JP_CORE_TERMINOLOGY_DEPENDENCY,
     JP_PATIENT_PROFILE,
     JP_VITAL_SIGNS_PROFILE,
     JP_TERMINOLOGY_PACKAGE,
@@ -128,11 +129,19 @@ class JpCoreFhirTests(unittest.TestCase):
             manifest["jp_terminology_package"], JP_TERMINOLOGY_PACKAGE
         )
         self.assertEqual(
+            manifest["jp_core_terminology_dependency"],
+            JP_CORE_TERMINOLOGY_DEPENDENCY,
+        )
+        self.assertEqual(
             manifest["jp_terminology_package_url"], JP_TERMINOLOGY_PACKAGE_URL
         )
         self.assertEqual(
             manifest["jp_terminology_package_sha256"],
             JP_TERMINOLOGY_PACKAGE_SHA256,
+        )
+        self.assertIn(
+            "unchanged-content cache alias",
+            manifest["upstream_package_metadata_boundary"],
         )
         self.assertEqual(manifest["profiled_resource_count"], 15)
         self.assertEqual(

@@ -24,6 +24,7 @@ JP_CORE_PACKAGE_SHA256 = (
     "6094c8b9ebd975cb738c66cc999774c06a0aacf4480c068a8465e597117e52a3"
 )
 JP_TERMINOLOGY_PACKAGE = "jpfhir-terminology#1.4.0"
+JP_CORE_TERMINOLOGY_DEPENDENCY = "jpfhir-terminology.r4#1.4.0"
 JP_TERMINOLOGY_PACKAGE_URL = (
     "https://jpfhir.jp/fhir/core/terminology/jpfhir-terminology.r4-1.4.0.tgz"
 )
@@ -129,6 +130,7 @@ def render_jpcore_outputs(source_bundle: dict[str, Any]) -> dict[str, str]:
         "jp_core_package": JP_CORE_PACKAGE,
         "jp_core_package_sha256": JP_CORE_PACKAGE_SHA256,
         "jp_core_package_url": JP_CORE_PACKAGE_URL,
+        "jp_core_terminology_dependency": JP_CORE_TERMINOLOGY_DEPENDENCY,
         "jp_terminology_package": JP_TERMINOLOGY_PACKAGE,
         "jp_terminology_package_sha256": JP_TERMINOLOGY_PACKAGE_SHA256,
         "jp_terminology_package_url": JP_TERMINOLOGY_PACKAGE_URL,
@@ -140,6 +142,11 @@ def render_jpcore_outputs(source_bundle: dict[str, Any]) -> dict[str, str]:
         "resource_count": 30,
         "resource_type_counts": EXPECTED_RESOURCE_COUNTS,
         "schema_version": "parkinsync-fhir-jpcore-v1",
+        "upstream_package_metadata_boundary": (
+            "JP Core declares jpfhir-terminology.r4#1.4.0 while the official "
+            "terminology archive identifies itself as jpfhir-terminology#1.4.0; "
+            "CI uses an unchanged-content cache alias"
+        ),
         "sha256": {
             JP_CORE_BUNDLE_FILE: hashlib.sha256(
                 bundle_content.encode("utf-8")

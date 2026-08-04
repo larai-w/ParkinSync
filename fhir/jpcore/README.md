@@ -64,6 +64,12 @@ SHA-256 digests, exact profile counts, excluded inferences, and validation scope
 packages are not currently resolvable through the standard FHIR package registries, so CI downloads
 both official `jpfhir.jp` archives and verifies their digests before validation.
 
+There is also an upstream package-ID mismatch: JP Core declares
+`jpfhir-terminology.r4#1.4.0`, while the official terminology archive identifies itself as
+`jpfhir-terminology#1.4.0`. CI keeps the verified archive unchanged and exposes the same files under
+the dependency ID expected by the Validator package cache. This compatibility alias does not change
+any CodeSystem, ValueSet, profile, or package metadata content.
+
 ```bash
 PYTHONPATH=src python scripts/generate_jpcore_fhir.py --check
 PYTHONPATH=src python -m unittest tests.test_fhir_jpcore -v
