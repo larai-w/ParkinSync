@@ -33,6 +33,7 @@ synthetic_normalized_record.json
   -> deterministic fact bundle, data-quality gate, and grounded offline summary
   -> separate seven-day transaction, aggregate facts, missingness, and weekly summary
   -> pinned ephemeral HAPI transaction + 30-resource semantic read-back check
+  -> separate NZ Base 3.1.0 Patient/MedicationStatement profile-validation track
 ```
 
 ## Mapping
@@ -104,11 +105,12 @@ downloaded from the versioned official release and checked against a pinned SHA-
 validator runs with `-tx n/a`, so the gate covers base R4 parsing, structure, and FHIRPath invariants
 without relying on a public terminology server.
 
-This is not terminology-server validation, NZ Base or NZ Patient Summary profile conformance,
-clinical review, or regulatory certification. NZPS is a document Bundle built around a Composition,
-whereas this demo intentionally produces an API transaction Bundle. Adding NZ identifiers, NZ Base
-profiles, a suitable shared-care or patient-summary use case, and the applicable Health NZ package is
-a separate design and governance decision.
+The base artifacts in this directory are not implementation-guide or terminology-server validation,
+clinical review, or regulatory certification. The separate [NZ Base track](nzbase/README.md) derives
+a synthetic Bundle and validates only the applicable `NzPatient` and `NzMedicationStatement` profiles
+against published NZ Base 3.1.0. NZPS is a document Bundle built around a Composition, whereas this
+demo intentionally produces an API transaction Bundle. A shared-care or patient-summary use case,
+NHI integration, and its full implementation contract remain separate design and governance decisions.
 
 The separate [grounded-summary experiment](summary/README.md) consumes the validated transaction
 Bundle. It retains FHIRPath provenance, calculates data-quality findings without a model, and requires
@@ -121,3 +123,7 @@ source fact ID and aggregation method, and returns no narrative when a day or ex
 The [ephemeral HAPI round trip](server/README.md) submits that synthetic weekly Bundle inside CI,
 checks every transaction response, reads all 30 resources back, and permits only documented
 server-managed metadata and reference-resolution differences.
+
+The [NZ Base profile-validation track](nzbase/README.md) adds only reviewed `meta.profile`
+declarations to a derivative of the weekly Bundle. It explicitly leaves Observation and CarePlan at
+base R4 and refuses to fabricate an NHI, NZ-specific demographics, or NZMT coding.

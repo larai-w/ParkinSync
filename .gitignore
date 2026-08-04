@@ -20,6 +20,9 @@ __pycache__/
 !fhir/weekly/generated/*.json
 # Reviewed ephemeral-server contract contains public synthetic-test metadata only.
 !fhir/server/*.json
+# Reviewed NZ Base derivative artifacts contain synthetic records only.
+!fhir/nzbase/*.json
+!fhir/nzbase/generated/*.json
 .env
 secret_key.txt
 

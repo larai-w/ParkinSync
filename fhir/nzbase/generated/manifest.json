@@ -1,0 +1,43 @@
+{
+  "artifact_count": 1,
+  "base_only_resource_type_counts": {
+    "CarePlan": 1,
+    "Observation": 14
+  },
+  "bundle_file": "bundle-synthetic-weekly-nzbase-transaction-bundle.json",
+  "classification": "synthetic",
+  "excluded_inferences": [
+    "NHI",
+    "NZ ethnicity or iwi",
+    "citizenship or residency",
+    "address or sex at birth",
+    "NZMT medication coding",
+    "diagnosis or treatment meaning"
+  ],
+  "fhir_release": "4.0.1",
+  "files": [
+    "bundle-synthetic-weekly-nzbase-transaction-bundle.json"
+  ],
+  "generator": "scripts/generate_nzbase_fhir.py",
+  "nz_base_package": "fhir.org.nz.ig.base#3.1.0",
+  "profile_counts": {
+    "http://hl7.org.nz/fhir/StructureDefinition/NzMedicationStatement": 14,
+    "http://hl7.org.nz/fhir/StructureDefinition/NzPatient": 1
+  },
+  "profiled_resource_count": 15,
+  "resource_count": 30,
+  "resource_type_counts": {
+    "CarePlan": 1,
+    "MedicationStatement": 14,
+    "Observation": 14,
+    "Patient": 1
+  },
+  "schema_version": "parkinsync-fhir-nzbase-v1",
+  "sha256": {
+    "bundle-synthetic-weekly-nzbase-transaction-bundle.json": "b4819d1b43949aaf0b66b098aaa5e7da877a8caae373fbf83882402e971f51d4"
+  },
+  "source_bundle": "fhir/weekly/generated/bundle-synthetic-weekly-transaction-bundle.json",
+  "source_bundle_id": "synthetic-weekly-transaction-bundle",
+  "source_bundle_sha256": "adb806a209c503653d0349eee981300d1d09506c941ef1277c280cb52a0ddbd3",
+  "validation_scope": "instance validation for NzPatient and NzMedicationStatement against the pinned published NZ Base package; Observation and CarePlan remain base FHIR R4"
+}

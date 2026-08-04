@@ -39,6 +39,9 @@ class ReadmeLinkTests(unittest.TestCase):
             "src/fhir_roundtrip.py",
             "fhir/server/roundtrip-contract.json",
             ".github/workflows/fhir-roundtrip.yml",
+            "src/fhir_nzbase.py",
+            "fhir/nzbase/generated/bundle-synthetic-weekly-nzbase-transaction-bundle.json",
+            "fhir/nzbase/generated/manifest.json",
             ".github/workflows/ci.yml",
         }
 
