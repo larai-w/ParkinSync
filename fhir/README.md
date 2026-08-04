@@ -110,7 +110,7 @@ without relying on a public terminology server.
 The base artifacts in this directory are not implementation-guide or terminology-server validation,
 clinical review, or regulatory certification. Separate [NZ Base](nzbase/README.md) and
 [JP Core](jpcore/README.md) tracks derive synthetic Bundles through one shared fail-closed overlay
-contract. Each jurisdiction keeps a distinct profile map and no-inference boundary. National patient
+contract. Each jurisdiction keeps a distinct profile map, structural overlay, and no-inference boundary. National patient
 summaries, identity integration, terminology services, and full use-case contracts remain separate
 design and governance decisions.
 
@@ -131,5 +131,6 @@ declarations to a derivative of the weekly Bundle. It explicitly leaves Observat
 base R4 and refuses to fabricate an NHI, NZ-specific demographics, or NZMT coding.
 
 The [JP Core profile-validation track](jpcore/README.md) applies the same shared overlay contract to
-Patient and VitalSigns Observation. It leaves MedicationStatement at base R4 because the written JP
-Core guidance requires Japanese medication coding that the source does not contain.
+Patient and VitalSigns Observation, adding the JP Core-required vital-signs category while retaining
+the standard FHIR category. It leaves MedicationStatement at base R4 because the written JP Core
+guidance requires Japanese medication coding that the source does not contain.

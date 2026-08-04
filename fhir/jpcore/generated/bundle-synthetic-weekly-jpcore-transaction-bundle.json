@@ -142,6 +142,15 @@
               {
                 "code": "vital-signs",
                 "display": "Vital Signs",
+                "system": "http://jpfhir.jp/fhir/core/CodeSystem/JP_SimpleObservationCategory_CS"
+              }
+            ]
+          },
+          {
+            "coding": [
+              {
+                "code": "vital-signs",
+                "display": "Vital Signs",
                 "system": "http://terminology.hl7.org/CodeSystem/observation-category"
               }
             ]
@@ -192,6 +201,15 @@
       },
       "resource": {
         "category": [
+          {
+            "coding": [
+              {
+                "code": "vital-signs",
+                "display": "Vital Signs",
+                "system": "http://jpfhir.jp/fhir/core/CodeSystem/JP_SimpleObservationCategory_CS"
+              }
+            ]
+          },
           {
             "coding": [
               {
@@ -350,6 +368,15 @@
               {
                 "code": "vital-signs",
                 "display": "Vital Signs",
+                "system": "http://jpfhir.jp/fhir/core/CodeSystem/JP_SimpleObservationCategory_CS"
+              }
+            ]
+          },
+          {
+            "coding": [
+              {
+                "code": "vital-signs",
+                "display": "Vital Signs",
                 "system": "http://terminology.hl7.org/CodeSystem/observation-category"
               }
             ]
@@ -400,6 +427,15 @@
       },
       "resource": {
         "category": [
+          {
+            "coding": [
+              {
+                "code": "vital-signs",
+                "display": "Vital Signs",
+                "system": "http://jpfhir.jp/fhir/core/CodeSystem/JP_SimpleObservationCategory_CS"
+              }
+            ]
+          },
           {
             "coding": [
               {
@@ -558,6 +594,15 @@
               {
                 "code": "vital-signs",
                 "display": "Vital Signs",
+                "system": "http://jpfhir.jp/fhir/core/CodeSystem/JP_SimpleObservationCategory_CS"
+              }
+            ]
+          },
+          {
+            "coding": [
+              {
+                "code": "vital-signs",
+                "display": "Vital Signs",
                 "system": "http://terminology.hl7.org/CodeSystem/observation-category"
               }
             ]
@@ -608,6 +653,15 @@
       },
       "resource": {
         "category": [
+          {
+            "coding": [
+              {
+                "code": "vital-signs",
+                "display": "Vital Signs",
+                "system": "http://jpfhir.jp/fhir/core/CodeSystem/JP_SimpleObservationCategory_CS"
+              }
+            ]
+          },
           {
             "coding": [
               {
@@ -766,6 +820,15 @@
               {
                 "code": "vital-signs",
                 "display": "Vital Signs",
+                "system": "http://jpfhir.jp/fhir/core/CodeSystem/JP_SimpleObservationCategory_CS"
+              }
+            ]
+          },
+          {
+            "coding": [
+              {
+                "code": "vital-signs",
+                "display": "Vital Signs",
                 "system": "http://terminology.hl7.org/CodeSystem/observation-category"
               }
             ]
@@ -816,6 +879,15 @@
       },
       "resource": {
         "category": [
+          {
+            "coding": [
+              {
+                "code": "vital-signs",
+                "display": "Vital Signs",
+                "system": "http://jpfhir.jp/fhir/core/CodeSystem/JP_SimpleObservationCategory_CS"
+              }
+            ]
+          },
           {
             "coding": [
               {
@@ -974,6 +1046,15 @@
               {
                 "code": "vital-signs",
                 "display": "Vital Signs",
+                "system": "http://jpfhir.jp/fhir/core/CodeSystem/JP_SimpleObservationCategory_CS"
+              }
+            ]
+          },
+          {
+            "coding": [
+              {
+                "code": "vital-signs",
+                "display": "Vital Signs",
                 "system": "http://terminology.hl7.org/CodeSystem/observation-category"
               }
             ]
@@ -1024,6 +1105,15 @@
       },
       "resource": {
         "category": [
+          {
+            "coding": [
+              {
+                "code": "vital-signs",
+                "display": "Vital Signs",
+                "system": "http://jpfhir.jp/fhir/core/CodeSystem/JP_SimpleObservationCategory_CS"
+              }
+            ]
+          },
           {
             "coding": [
               {
@@ -1182,6 +1272,15 @@
               {
                 "code": "vital-signs",
                 "display": "Vital Signs",
+                "system": "http://jpfhir.jp/fhir/core/CodeSystem/JP_SimpleObservationCategory_CS"
+              }
+            ]
+          },
+          {
+            "coding": [
+              {
+                "code": "vital-signs",
+                "display": "Vital Signs",
                 "system": "http://terminology.hl7.org/CodeSystem/observation-category"
               }
             ]
@@ -1232,6 +1331,15 @@
       },
       "resource": {
         "category": [
+          {
+            "coding": [
+              {
+                "code": "vital-signs",
+                "display": "Vital Signs",
+                "system": "http://jpfhir.jp/fhir/core/CodeSystem/JP_SimpleObservationCategory_CS"
+              }
+            ]
+          },
           {
             "coding": [
               {
@@ -1390,6 +1498,15 @@
               {
                 "code": "vital-signs",
                 "display": "Vital Signs",
+                "system": "http://jpfhir.jp/fhir/core/CodeSystem/JP_SimpleObservationCategory_CS"
+              }
+            ]
+          },
+          {
+            "coding": [
+              {
+                "code": "vital-signs",
+                "display": "Vital Signs",
                 "system": "http://terminology.hl7.org/CodeSystem/observation-category"
               }
             ]
@@ -1440,6 +1557,15 @@
       },
       "resource": {
         "category": [
+          {
+            "coding": [
+              {
+                "code": "vital-signs",
+                "display": "Vital Signs",
+                "system": "http://jpfhir.jp/fhir/core/CodeSystem/JP_SimpleObservationCategory_CS"
+              }
+            ]
+          },
           {
             "coding": [
               {

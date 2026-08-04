@@ -35,6 +35,9 @@ JP_PATIENT_PROFILE = "http://jpfhir.jp/fhir/core/StructureDefinition/JP_Patient"
 JP_VITAL_SIGNS_PROFILE = (
     "http://jpfhir.jp/fhir/core/StructureDefinition/JP_Observation_VitalSigns"
 )
+JP_SIMPLE_OBSERVATION_CATEGORY_SYSTEM = (
+    "http://jpfhir.jp/fhir/core/CodeSystem/JP_SimpleObservationCategory_CS"
+)
 SYNTHETIC_IDENTIFIER_SYSTEM = "https://veai.jp/fhir/synthetic-patient"
 JP_CORE_CANONICAL_PREFIX = "http://jpfhir.jp/fhir/core/"
 JP_CORE_BUNDLE_ID = "synthetic-weekly-jpcore-transaction-bundle"
@@ -44,10 +47,30 @@ PROFILE_BY_RESOURCE_TYPE = {
     "Patient": JP_PATIENT_PROFILE,
     "Observation": JP_VITAL_SIGNS_PROFILE,
 }
+
+
+def _apply_jpcore_resource_overlay(resource: dict[str, Any]) -> None:
+    if resource["resourceType"] != "Observation":
+        return
+    resource.setdefault("category", []).insert(
+        0,
+        {
+            "coding": [
+                {
+                    "code": "vital-signs",
+                    "display": "Vital Signs",
+                    "system": JP_SIMPLE_OBSERVATION_CATEGORY_SYSTEM,
+                }
+            ]
+        },
+    )
+
+
 JP_CORE_SPEC = JurisdictionProfileSpec(
     label="JP Core",
     bundle_id=JP_CORE_BUNDLE_ID,
     profile_by_resource_type=PROFILE_BY_RESOURCE_TYPE,
+    resource_overlay=_apply_jpcore_resource_overlay,
 )
 
 
@@ -90,7 +113,20 @@ def validate_jpcore_bundle(
 
         for coding in _resource_codings(resource):
             system = coding.get("system")
-            if isinstance(system, str) and system.startswith(JP_CORE_CANONICAL_PREFIX):
+            allowed_category = (
+                resource_type == "Observation"
+                and coding
+                == {
+                    "code": "vital-signs",
+                    "display": "Vital Signs",
+                    "system": JP_SIMPLE_OBSERVATION_CATEGORY_SYSTEM,
+                }
+            )
+            if (
+                isinstance(system, str)
+                and system.startswith(JP_CORE_CANONICAL_PREFIX)
+                and not allowed_category
+            ):
                 raise ValueError("JP Core terminology coding must not be inferred")
 
 
@@ -120,7 +156,7 @@ def render_jpcore_outputs(source_bundle: dict[str, Any]) -> dict[str, str]:
             "Japanese patient identifier",
             "name, address, sex, birth date, or other demographics",
             "YJ, HOT, GS1, or local medication coding",
-            "JP Core terminology coding",
+            "JP Core terminology coding beyond the required vital-signs category",
             "performer or institution",
             "diagnosis or treatment meaning",
         ],
@@ -139,6 +175,13 @@ def render_jpcore_outputs(source_bundle: dict[str, Any]) -> dict[str, str]:
             JP_VITAL_SIGNS_PROFILE: 14,
         },
         "profiled_resource_count": 15,
+        "required_jurisdiction_overlay": {
+            "Observation.category": {
+                "code": "vital-signs",
+                "count": 14,
+                "system": JP_SIMPLE_OBSERVATION_CATEGORY_SYSTEM,
+            }
+        },
         "resource_count": 30,
         "resource_type_counts": EXPECTED_RESOURCE_COUNTS,
         "schema_version": "parkinsync-fhir-jpcore-v1",

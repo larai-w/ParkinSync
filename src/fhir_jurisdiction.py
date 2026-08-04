@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections import Counter
+from collections.abc import Callable
 from copy import deepcopy
 from dataclasses import dataclass
 from typing import Any, Mapping
@@ -27,6 +28,17 @@ class JurisdictionProfileSpec:
     label: str
     bundle_id: str
     profile_by_resource_type: Mapping[str, str]
+    resource_overlay: Callable[[dict[str, Any]], None] | None = None
+
+
+def _apply_resource_overlay(
+    resource: dict[str, Any], spec: JurisdictionProfileSpec
+) -> None:
+    profile = spec.profile_by_resource_type.get(resource["resourceType"])
+    if profile:
+        resource.setdefault("meta", {})["profile"] = [profile]
+    if spec.resource_overlay is not None:
+        spec.resource_overlay(resource)
 
 
 def has_synthetic_tag(resource: dict[str, Any]) -> bool:
@@ -80,10 +92,7 @@ def build_profile_overlay(
     bundle = deepcopy(source_bundle)
     bundle["id"] = spec.bundle_id
     for entry in bundle["entry"]:
-        resource = entry["resource"]
-        profile = spec.profile_by_resource_type.get(resource["resourceType"])
-        if profile:
-            resource.setdefault("meta", {})["profile"] = [profile]
+        _apply_resource_overlay(entry["resource"], spec)
     validate_profile_overlay(source_bundle, bundle, spec)
     return bundle
 
@@ -131,12 +140,11 @@ def validate_profile_overlay(
 
     expected = deepcopy(source_bundle)
     expected["id"] = spec.bundle_id
-    stripped = deepcopy(bundle)
-    for entry in stripped["entry"]:
-        entry["resource"].get("meta", {}).pop("profile", None)
-    if stripped != expected:
+    for entry in expected["entry"]:
+        _apply_resource_overlay(entry["resource"], spec)
+    if bundle != expected:
         raise ValueError(
-            f"{spec.label} derivative changed data beyond Bundle id and profiles"
+            f"{spec.label} derivative changed data beyond the reviewed overlay"
         )
     validate_transaction_bundle(Bundle.parse_obj(bundle))
     return profile_counts

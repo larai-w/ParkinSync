@@ -13,6 +13,7 @@ from fhir_jpcore import (
     JP_CORE_PACKAGE_URL,
     JP_CORE_TERMINOLOGY_DEPENDENCY,
     JP_PATIENT_PROFILE,
+    JP_SIMPLE_OBSERVATION_CATEGORY_SYSTEM,
     JP_VITAL_SIGNS_PROFILE,
     JP_TERMINOLOGY_PACKAGE,
     JP_TERMINOLOGY_PACKAGE_SHA256,
@@ -94,12 +95,41 @@ class JpCoreFhirTests(unittest.TestCase):
             self.assertNotIn("profile", medication["meta"])
             self.assertNotIn("coding", medication["medicationCodeableConcept"])
 
-    def test_semantics_differ_only_by_bundle_id_and_profiles(self):
+    def test_adds_only_required_jp_vital_signs_category(self):
+        bundle = build_jpcore_bundle(self.source)
+        observations = [
+            entry["resource"]
+            for entry in bundle["entry"]
+            if entry["resource"]["resourceType"] == "Observation"
+        ]
+
+        for observation in observations:
+            self.assertEqual(
+                observation["category"][0],
+                {
+                    "coding": [
+                        {
+                            "code": "vital-signs",
+                            "display": "Vital Signs",
+                            "system": JP_SIMPLE_OBSERVATION_CATEGORY_SYSTEM,
+                        }
+                    ]
+                },
+            )
+            self.assertEqual(
+                observation["category"][1]["coding"][0]["system"],
+                "http://terminology.hl7.org/CodeSystem/observation-category",
+            )
+
+    def test_semantics_differ_only_by_reviewed_overlay(self):
         expected = copy.deepcopy(self.source)
         expected["id"] = JP_CORE_BUNDLE_ID
         actual = build_jpcore_bundle(self.source)
         for entry in actual["entry"]:
-            entry["resource"].get("meta", {}).pop("profile", None)
+            resource = entry["resource"]
+            resource.get("meta", {}).pop("profile", None)
+            if resource["resourceType"] == "Observation":
+                resource["category"].pop(0)
 
         self.assertEqual(actual, expected)
 
@@ -144,6 +174,14 @@ class JpCoreFhirTests(unittest.TestCase):
             manifest["upstream_package_metadata_boundary"],
         )
         self.assertEqual(manifest["profiled_resource_count"], 15)
+        self.assertEqual(
+            manifest["required_jurisdiction_overlay"]["Observation.category"],
+            {
+                "code": "vital-signs",
+                "count": 14,
+                "system": JP_SIMPLE_OBSERVATION_CATEGORY_SYSTEM,
+            },
+        )
         self.assertEqual(
             manifest["base_only_resource_type_counts"],
             {"CarePlan": 1, "MedicationStatement": 14},

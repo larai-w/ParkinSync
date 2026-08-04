@@ -10,7 +10,7 @@
     "Japanese patient identifier",
     "name, address, sex, birth date, or other demographics",
     "YJ, HOT, GS1, or local medication coding",
-    "JP Core terminology coding",
+    "JP Core terminology coding beyond the required vital-signs category",
     "performer or institution",
     "diagnosis or treatment meaning"
   ],
@@ -31,6 +31,13 @@
     "http://jpfhir.jp/fhir/core/StructureDefinition/JP_Patient": 1
   },
   "profiled_resource_count": 15,
+  "required_jurisdiction_overlay": {
+    "Observation.category": {
+      "code": "vital-signs",
+      "count": 14,
+      "system": "http://jpfhir.jp/fhir/core/CodeSystem/JP_SimpleObservationCategory_CS"
+    }
+  },
   "resource_count": 30,
   "resource_type_counts": {
     "CarePlan": 1,
@@ -40,7 +47,7 @@
   },
   "schema_version": "parkinsync-fhir-jpcore-v1",
   "sha256": {
-    "bundle-synthetic-weekly-jpcore-transaction-bundle.json": "c144298ed35b81679f18d2840613ac30aabc177522c2ac83008c8a5a394e75f7"
+    "bundle-synthetic-weekly-jpcore-transaction-bundle.json": "3faabcd9409a38f3e2e3ab34d4292b1945db4250145fa44bd7af508f0ef6ec0f"
   },
   "source_bundle": "fhir/weekly/generated/bundle-synthetic-weekly-transaction-bundle.json",
   "source_bundle_id": "synthetic-weekly-transaction-bundle",

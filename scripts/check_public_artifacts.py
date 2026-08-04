@@ -709,6 +709,26 @@ def validate_jpcore_artifacts() -> list[str]:
         failures.append("JP Core manifest must record the package-ID compatibility boundary")
     if manifest.get("source_bundle") != source_path.as_posix():
         failures.append("JP Core manifest source Bundle is not reviewed")
+    expected_jp_category = {
+        "coding": [
+            {
+                "code": "vital-signs",
+                "display": "Vital Signs",
+                "system": (
+                    "http://jpfhir.jp/fhir/core/CodeSystem/"
+                    "JP_SimpleObservationCategory_CS"
+                ),
+            }
+        ]
+    }
+    if manifest.get("required_jurisdiction_overlay") != {
+        "Observation.category": {
+            "code": "vital-signs",
+            "count": 14,
+            "system": expected_jp_category["coding"][0]["system"],
+        }
+    }:
+        failures.append("JP Core manifest must record the required category overlay")
 
     source_content = json.dumps(source, indent=2, sort_keys=True) + "\n"
     if manifest.get("source_bundle_sha256") != hashlib.sha256(
@@ -768,6 +788,10 @@ def validate_jpcore_artifacts() -> list[str]:
             "medicationCodeableConcept", {}
         ).get("coding"):
             failures.append("JP Core synthetic medication must not infer coding")
+        if resource_type == "Observation":
+            categories = resource.get("category", [])
+            if not categories or categories[0] != expected_jp_category:
+                failures.append("JP Core Observation lacks the required category slice")
 
     expected_counts = {
         "CarePlan": 1,
@@ -787,6 +811,8 @@ def validate_jpcore_artifacts() -> list[str]:
         profile = expected_profiles.get(resource.get("resourceType"))
         if profile:
             resource.setdefault("meta", {})["profile"] = profile
+        if resource.get("resourceType") == "Observation":
+            resource.setdefault("category", []).insert(0, expected_jp_category)
     if bundle != expected:
         failures.append("JP Core derivative changes content beyond the reviewed profile overlay")
 

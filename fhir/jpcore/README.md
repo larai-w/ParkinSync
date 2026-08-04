@@ -14,9 +14,12 @@ clinical or identity dataset.
 | MedicationStatement | 14 | Base FHIR R4; source has medication text but no reviewed Japanese medication code |
 | CarePlan | 1 | Base FHIR R4; no reviewed JP Core use-case mapping is declared |
 
-All 14 Observations already carry reviewed LOINC vital-sign codes, UCUM units, `vital-signs`
-category, status, subject, effective time, and value. The Patient already has the identifier required
-by the JP Core profile, using ParkinSync's conspicuously synthetic temporary namespace.
+All 14 Observations already carry reviewed LOINC vital-sign codes, UCUM units, standard FHIR
+`vital-signs` category, status, subject, effective time, and value. JP Core additionally requires a
+`JP_SimpleObservationCategory_CS|vital-signs` category slice. The derivative adds that jurisdictional
+classification while retaining the original standard category. This does not add a new clinical fact.
+The Patient already has the identifier required by the JP Core profile, using ParkinSync's
+conspicuously synthetic temporary namespace.
 
 JP Core's MedicationStatement guidance says medication coding system, code, and display must be
 present. ParkinSync's source contains only explicit demonstration text. The formal profile package
@@ -31,9 +34,10 @@ used by both JP Core and NZ Base:
 
 - the source must be the reviewed 30-resource synthetic weekly transaction;
 - no source resource may already declare a profile;
-- each jurisdiction chooses an explicit resource-type-to-profile map;
-- the only permitted semantic differences are a derivative Bundle ID and exact `meta.profile`
-  declarations; and
+- each jurisdiction chooses an explicit resource-type-to-profile map and optional deterministic
+  structural overlay;
+- the only permitted differences are a derivative Bundle ID, exact `meta.profile` declarations, and
+  the jurisdiction's explicitly reviewed overlay; and
 - references, transaction requests, IDs, observations, medications, and care-plan content remain
   byte-for-byte equivalent after removing those declarations.
 
@@ -52,9 +56,9 @@ Any production adoption must re-check the official publication status and packag
 ## No-inference boundary
 
 The generator does not create a Japanese patient identifier, demographics, institution, performer,
-medication code, JP Core terminology coding, diagnosis, or treatment meaning. MedicationStatement and
-CarePlan remain base R4. This avoids making the example look more locally complete by adding facts that
-do not exist in the source.
+medication code, JP Core terminology coding beyond the required vital-signs category, diagnosis, or
+treatment meaning. MedicationStatement and CarePlan remain base R4. This avoids making the example
+look more locally complete by adding facts that do not exist in the source.
 
 ## Evidence and run
 
