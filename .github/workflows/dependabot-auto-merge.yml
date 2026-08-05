@@ -1,0 +1,24 @@
+name: Dependabot auto-merge
+# patch/minor の依存更新は CI 緑で自動マージ（main まで）。major は手動レビュー。
+# 前提: リポジトリ設定 "Allow auto-merge" 有効（allow_auto_merge=true）。
+#       ブランチ保護の必須チェックがあれば、それが緑になってからマージされる。
+on: pull_request
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  auto-merge:
+    if: ${{ github.actor == 'dependabot[bot]' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Dependabot metadata
+        id: meta
+        uses: dependabot/fetch-metadata@v2
+      - name: Enable auto-merge for patch/minor
+        if: ${{ steps.meta.outputs.update-type == 'version-update:semver-patch' || steps.meta.outputs.update-type == 'version-update:semver-minor' }}
+        run: gh pr merge --auto --squash "$PR_URL"
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
