@@ -1,0 +1,25 @@
+{
+  "patientId": "synthetic-patient-001",
+  "careTeamId": "synthetic-household-001",
+  "source": "gutpacer",
+  "days": [
+    {
+      "date": "2026-08-01",
+      "bowelMovements": [
+        { "time": "08:12", "bristol": 4, "volumeMl": 150 },
+        { "time": "19:40", "bristol": 3, "volumeMl": 90 }
+      ],
+      "movicol": [{ "time": "09:00", "doseSachets": 1 }]
+    },
+    {
+      "date": "2026-08-02",
+      "bowelMovements": [],
+      "movicol": [{ "time": "09:05", "doseSachets": 2 }]
+    },
+    {
+      "date": "2026-08-03",
+      "bowelMovements": [{ "time": "07:50", "bristol": 5, "volumeMl": 200 }],
+      "movicol": []
+    }
+  ]
+}

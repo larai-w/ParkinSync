@@ -1,0 +1,78 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://veai.jp/schemas/care-event/v1.json",
+  "title": "VEAI Care Event v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "eventId",
+    "eventType",
+    "source",
+    "patientId",
+    "careTeamId",
+    "occurredAt",
+    "recordedAt",
+    "localDate",
+    "payload",
+    "missingness",
+    "provenance",
+    "consentScope",
+    "exportVersion"
+  ],
+  "properties": {
+    "schemaVersion": { "const": "care-event/v1" },
+    "eventId": { "type": "string", "minLength": 1 },
+    "eventType": {
+      "type": "string",
+      "enum": [
+        "medication_taken",
+        "medication_missed",
+        "bowel_movement",
+        "movicol_taken",
+        "daily_condition_logged",
+        "location_changed",
+        "weather_observed",
+        "indoor_temperature_observed"
+      ]
+    },
+    "source": { "type": "string", "minLength": 1 },
+    "patientId": { "type": "string", "minLength": 1 },
+    "careTeamId": { "type": "string", "minLength": 1 },
+    "actorId": { "type": "string" },
+    "actorRole": { "enum": ["patient", "caregiver", "family", "staff", "system"] },
+    "occurredAt": { "type": "string", "format": "date-time" },
+    "recordedAt": { "type": "string", "format": "date-time" },
+    "localDate": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$" },
+    "payload": { "type": "object" },
+    "missingness": {
+      "enum": ["observed", "confirmed_none", "not_recorded", "not_applicable", "unknown", "source_unavailable", "excluded"]
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source", "sourceRecordId", "recordedAt", "exportedAt", "transformVersion"],
+      "properties": {
+        "source": { "type": "string", "minLength": 1 },
+        "sourceRecordId": { "type": "string", "minLength": 1 },
+        "recordedAt": { "type": "string", "format": "date-time" },
+        "exportedAt": { "type": "string", "format": "date-time" },
+        "transformVersion": { "type": "string", "minLength": 1 }
+      }
+    },
+    "consentScope": {
+      "enum": ["care_support", "personal_review", "research_aggregate", "none"]
+    },
+    "exportVersion": { "type": "string", "minLength": 1 },
+    "correction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status"],
+      "properties": {
+        "status": { "enum": ["original", "corrected", "voided"] },
+        "supersedesEventId": { "type": "string" },
+        "reasonCode": { "type": "string" }
+      }
+    }
+  }
+}
