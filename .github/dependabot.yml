@@ -8,3 +8,11 @@ updates:
     # Frequency of manifest checks for dependency updates
     schedule:
       interval: "weekly"
+    ignore:
+      # The FHIR adapter intentionally targets R4.0.1. fhir.resources 8.x requires
+      # Pydantic 2 and belongs to a newer package line, so these majors must move
+      # together only as an explicit compatibility migration.
+      - dependency-name: "fhir.resources"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "pydantic"
+        update-types: ["version-update:semver-major"]
