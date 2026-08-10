@@ -58,10 +58,21 @@ PRIVATE_MARKERS = (
     re.compile(r"(?m)(?:社外秘|内部限定|外部共有禁止)"),
 )
 
+# 確度の高い主要シークレットパターン（網羅検出は gitleaks が担う。
+# ここでは公開リポジトリへの混入を確実に防ぎたい高頻度・高精度のものに絞る。
+# 追加: Slack / Google / JWT / Stripe / OpenAI / npm / PyPI）
 SECRET_PATTERNS = (
-    ("private key", re.compile(r"-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----")),
+    ("private key", re.compile(r"-----BEGIN (?:RSA |EC |OPENSSH |DSA |PGP )?PRIVATE KEY(?: BLOCK)?-----")),
     ("AWS access key", re.compile(r"\b(?:AKIA|ASIA)[A-Z0-9]{16}\b")),
     ("GitHub token", re.compile(r"\bgithub_pat_[A-Za-z0-9_]{20,}\b|\bgh[opusr]_[A-Za-z0-9]{20,}\b")),
+    ("Slack token", re.compile(r"\bxox[baprs]-[A-Za-z0-9-]{10,}\b")),
+    ("Slack webhook", re.compile(r"https://hooks\.slack\.com/services/T[A-Z0-9]{8,}/B[A-Z0-9]{8,}/[A-Za-z0-9]{24}")),
+    ("Google API key", re.compile(r"\bAIza[0-9A-Za-z\-_]{35}\b")),
+    ("JWT", re.compile(r"\beyJ[A-Za-z0-9_-]{10,}\.eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\b")),
+    ("Stripe key", re.compile(r"\b(?:sk|pk|rk)_(?:live|test)_[0-9a-zA-Z]{24,}\b")),
+    ("OpenAI key", re.compile(r"\bsk-(?:proj-)?[A-Za-z0-9_-]{20,}\b")),
+    ("npm token", re.compile(r"\bnpm_[A-Za-z0-9]{36}\b")),
+    ("PyPI token", re.compile(r"\bpypi-[A-Za-z0-9_-]{16,}\b")),
 )
 
 # Strong, multi-word strategy phrases: a single hit blocks. These are deliberately specific so
@@ -142,13 +153,20 @@ def main() -> int:
 
     errors: list[str] = []
     for path in paths:
-        if reason := private_path_reason(path):
-            errors.append(f"{path}: {reason}")
-            continue
         try:
             content = read_content(path)
+        except FileNotFoundError:
+            # `git ls-files` includes tracked files deleted in the working tree until the
+            # deletion is committed. They have no content left to inspect and must not make
+            # a pre-commit/CI dry run fail while private material is being removed.
+            if not args.staged and not (ROOT / path).exists():
+                continue
+            raise
         except (OSError, subprocess.CalledProcessError) as error:
             errors.append(f"{path}: cannot inspect content ({error})")
+            continue
+        if reason := private_path_reason(path):
+            errors.append(f"{path}: {reason}")
             continue
         errors.extend(f"{path}: {reason}" for reason in content_reasons(path, content))
 
