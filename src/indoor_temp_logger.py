@@ -6,6 +6,7 @@ import json
 import math
 import os
 import time
+import uuid
 
 import boto3
 import google_auth_httplib2
@@ -205,6 +206,50 @@ def sync_daily_aggregate(service, spreadsheet_id, telemetry_rows, target_date):
     }
 
 
+def _signed_headers(token, secret):
+    """Build SwitchBot v1.1 auth headers with a fresh timestamp and unique nonce.
+
+    A unique per-request nonce is required: reusing a constant nonce trips
+    SwitchBot's replay protection and returns intermittent HTTP 401.
+    """
+    request_time = str(int(time.time() * 1000))
+    nonce = uuid.uuid4().hex
+    string_to_sign = f"{token}{request_time}{nonce}".encode("utf-8")
+    sign = base64.b64encode(
+        hmac.new(
+            secret.encode("utf-8"),
+            msg=string_to_sign,
+            digestmod=hashlib.sha256,
+        ).digest()
+    ).decode("utf-8")
+    return {
+        "Authorization": token,
+        "sign": sign,
+        "t": request_time,
+        "nonce": nonce,
+        "Content-Type": "application/json; charset=utf8",
+    }
+
+
+def _switchbot_status(url, token, secret, attempts=3, timeout=15):
+    """GET device status, retrying transient timeouts/connection errors.
+
+    Auth failures (401/4xx) fail fast via raise_for_status (not retried), since
+    those indicate a credential/signing problem, not a transient one. Each retry
+    re-signs with a fresh timestamp and nonce.
+    """
+    last_exc = None
+    for attempt in range(attempts):
+        try:
+            response = requests.get(url, headers=_signed_headers(token, secret), timeout=timeout)
+            response.raise_for_status()
+            return response
+        except (requests.Timeout, requests.ConnectionError) as exc:
+            last_exc = exc
+            time.sleep(2 ** attempt)
+    raise last_exc
+
+
 def lambda_handler(event, context):
     """Log one indoor sample and refresh its local-day Master aggregate."""
     try:
@@ -217,27 +262,8 @@ def lambda_handler(event, context):
         device_id = secrets["SWITCHBOT_DEVICE_ID"]
         spreadsheet_id = secrets["GOOGLE_SHEET_ID"]
 
-        request_time = str(int(time.time() * 1000))
-        nonce = "ParkinSyncLogger"
-        string_to_sign = f"{token}{request_time}{nonce}".encode("utf-8")
-        sign = base64.b64encode(
-            hmac.new(
-                secret.encode("utf-8"),
-                msg=string_to_sign,
-                digestmod=hashlib.sha256,
-            ).digest()
-        ).decode("utf-8")
-        headers = {
-            "Authorization": token,
-            "sign": sign,
-            "t": request_time,
-            "nonce": nonce,
-            "Content-Type": "application/json; charset=utf8",
-        }
-
         url = f"https://api.switch-bot.com/v1.1/devices/{device_id}/status"
-        response = requests.get(url, headers=headers, timeout=10)
-        response.raise_for_status()
+        response = _switchbot_status(url, token, secret)
         indoor_temp = _temperature(response.json()["body"]["temperature"])
         if indoor_temp is None:
             raise ValueError("SwitchBot returned a non-numeric temperature")
