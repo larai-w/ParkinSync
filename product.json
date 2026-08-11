@@ -28,7 +28,7 @@
 	"lastVerified": "2026-08-04",
 	"site": {
 		"status": "research-prototype",
-		"order": 5,
+		"order": 6,
 		"icon": "🧠",
 		"themeColor": "#e0f1ef",
 		"techStack": [
