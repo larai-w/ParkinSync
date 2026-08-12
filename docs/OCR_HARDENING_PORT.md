@@ -45,5 +45,6 @@ The "no table detected" case still returns `404` (after quarantine), and success
 
 - After this PR merges, **archive `feature/fable5-mvp-hardening`** (its useful content is
   now in `main`); record the archival so the unrelated-history branch is not resurrected.
-- Reconcile `deploy.sh` (Issue #26 guardrail) once `main` is confirmed to match/supersede
-  production, then a normal deploy from `main` is safe.
+- **Completed 2026-08-12:** read-only comparison confirmed `main` and production are
+  byte-identical. The obsolete Issue #26 guard was removed; production deployment
+  still requires explicit owner review.

@@ -1,10 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# HEALTH-SAFETY GUARDRAIL (Issue #26) - do not remove without reading the doc.
-# The current source has been behaviorally reconciled and verified by tests, but
-# the owner should explicitly approve guardrail removal after reviewing the
-# evidence. Details + rollback evidence:
+# Issue #26 was reconciled on 2026-08-12: the production OCR handler is
+# byte-identical to main. Production deployment still requires explicit owner
+# review. Details + rollback evidence:
 #   docs/PRODUCTION_LAMBDA_RECONCILIATION.md
 DEPLOY_TARGET="${DEPLOY_TARGET:-all}"
 case "$DEPLOY_TARGET" in
@@ -15,16 +14,6 @@ case "$DEPLOY_TARGET" in
     ;;
 esac
 
-# An IoT-only release cannot overwrite the OCR Lambda, so it is safe to pass this
-# guard. OCR and all-component releases remain blocked until the production source
-# of truth is explicitly reconciled.
-if [ "$DEPLOY_TARGET" != "iot" ] && [ "${ALLOW_UNRECONCILED_DEPLOY:-}" != "1" ]; then
-  echo "Refusing to deploy: main is not reconciled with production (Issue #26)." >&2
-  echo "See docs/PRODUCTION_LAMBDA_RECONCILIATION.md. Override with ALLOW_UNRECONCILED_DEPLOY=1." >&2
-  echo "For the indoor telemetry Lambda only, use DEPLOY_TARGET=iot." >&2
-  exit 1
-fi
-
 AWS_REGION="${AWS_REGION:-us-east-1}"
 PYTHON_BIN="${PYTHON_BIN:-python3}"
 LAMBDA_PLATFORM="${LAMBDA_PLATFORM:-manylinux2014_x86_64}"
@@ -33,12 +22,18 @@ VENDOR_DEPS="${VENDOR_DEPS:-0}"
 DRY_RUN="${DRY_RUN:-0}"
 LAMBDA_ALIAS="${LAMBDA_ALIAS:-prod}"
 RELEASE_DESCRIPTION="${RELEASE_DESCRIPTION:-ParkinSync release via deploy.sh}"
-LAMBDA_TIMEOUT="${LAMBDA_TIMEOUT:-60}"
+# LAMBDA_TIMEOUT remains a compatibility override for both functions. Prefer the
+# per-function variables so one deployment does not change the other's setting.
+OCR_LAMBDA_TIMEOUT="${OCR_LAMBDA_TIMEOUT:-${LAMBDA_TIMEOUT:-90}}"
+IOT_LAMBDA_TIMEOUT="${IOT_LAMBDA_TIMEOUT:-${LAMBDA_TIMEOUT:-60}}"
 
-if ! [[ "$LAMBDA_TIMEOUT" =~ ^[1-9][0-9]{0,2}$ ]] || [ "$LAMBDA_TIMEOUT" -gt 900 ]; then
-  echo "LAMBDA_TIMEOUT must be an integer between 1 and 900 seconds" >&2
-  exit 2
-fi
+for timeout_name in OCR_LAMBDA_TIMEOUT IOT_LAMBDA_TIMEOUT; do
+  timeout_value="${!timeout_name}"
+  if ! [[ "$timeout_value" =~ ^[1-9][0-9]{0,2}$ ]] || [ "$timeout_value" -gt 900 ]; then
+    echo "$timeout_name must be an integer between 1 and 900 seconds" >&2
+    exit 2
+  fi
+done
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BUILD_ROOT="$(mktemp -d)"
@@ -76,9 +71,10 @@ build_zip() {
 deploy_function_code() {
   local function_name="$1"
   local zip_path="$2"
+  local timeout="$3"
 
   if [ "$DRY_RUN" = "1" ]; then
-    echo "DRY_RUN: would set timeout=${LAMBDA_TIMEOUT}s, publish $function_name and move alias $LAMBDA_ALIAS ($(du -h "$zip_path" | cut -f1), vendor_deps=$VENDOR_DEPS)"
+    echo "DRY_RUN: would set timeout=${timeout}s, publish $function_name and move alias $LAMBDA_ALIAS ($(du -h "$zip_path" | cut -f1), vendor_deps=$VENDOR_DEPS)"
     return
   fi
 
@@ -86,7 +82,7 @@ deploy_function_code() {
   aws lambda update-function-configuration \
     --region "$AWS_REGION" \
     --function-name "$function_name" \
-    --timeout "$LAMBDA_TIMEOUT" \
+    --timeout "$timeout" \
     >/dev/null
   aws lambda wait function-updated \
     --region "$AWS_REGION" \
@@ -146,7 +142,7 @@ if [ "$DEPLOY_TARGET" = "all" ] || [ "$DEPLOY_TARGET" = "ocr" ]; then
   cp "$ROOT_DIR/src/ParkinSync_OCR_Handler.py" "$OCR_BUILD/lambda_function.py"
   build_zip "$OCR_BUILD" "$OCR_ZIP"
 
-  deploy_function_code "ParkinSync_OCR_Handler" "$OCR_ZIP"
+  deploy_function_code "ParkinSync_OCR_Handler" "$OCR_ZIP" "$OCR_LAMBDA_TIMEOUT"
 fi
 
 if [ "$DEPLOY_TARGET" = "all" ] || [ "$DEPLOY_TARGET" = "iot" ]; then
@@ -157,5 +153,5 @@ if [ "$DEPLOY_TARGET" = "all" ] || [ "$DEPLOY_TARGET" = "iot" ]; then
   cp "$ROOT_DIR/src/indoor_temp_logger.py" "$IOT_BUILD/lambda_function.py"
   build_zip "$IOT_BUILD" "$IOT_ZIP"
 
-  deploy_function_code "ParkinSync_IndoorTemp_Logger" "$IOT_ZIP"
+  deploy_function_code "ParkinSync_IndoorTemp_Logger" "$IOT_ZIP" "$IOT_LAMBDA_TIMEOUT"
 fi

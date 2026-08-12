@@ -75,8 +75,7 @@ DEPLOY_TARGET=iot AWS_REGION=us-east-1 bash deploy.sh
 The first command builds and validates a source-only ZIP without updating AWS. Both production
 functions use compatible dependency Layers; duplicating those libraries in the function ZIP can exceed
 the 128 MB runtime memory boundary. `VENDOR_DEPS=1` is an explicit opt-in for a reviewed target without
-Layers and still selects Linux x86_64 wheels. Deployment requires an explicit production review. Do not use
-`ALLOW_UNRECONCILED_DEPLOY=1` for an IoT-only release.
+Layers and still selects Linux x86_64 wheels. Deployment requires an explicit production review.
 
 ---
 
