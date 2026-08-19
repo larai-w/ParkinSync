@@ -41,6 +41,11 @@ arbitrary-server, terminology-server, patient-summary, identity integration, cli
 medical-device, treatment, security, performance, or regulatory conformance. No participant or
 production record is transmitted.
 
+The repository currently validates explicit synthetic ParkinSync records. It does not ingest GutPacer
+or Medication Promise production exports, connect to a clinical EHR, or claim a live cross-product
+FHIR integration. These boundaries keep the public demonstration reproducible and prevent
+participant data from being treated as clinical interoperability evidence.
+
 ---
 
 ## Why this exists
