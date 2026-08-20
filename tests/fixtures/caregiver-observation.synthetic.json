@@ -1,0 +1,30 @@
+[
+  {
+    "schemaVersion": "caregiver-observation/v1",
+    "eventId": "synthetic-caregiver-fall-001",
+    "eventType": "caregiver_observation",
+    "observationType": "fall",
+    "occurred": true,
+    "observedAt": "2035-01-02T10:00:00+09:00",
+    "recordedAt": "2035-01-02T10:01:00+09:00",
+    "actorRole": "caregiver",
+    "actorId": "synthetic-caregiver-001",
+    "missingness": "observed",
+    "provenance": {"source": "parkinsync", "sourceRecordId": "synthetic-caregiver-record-001", "transformVersion": "parkinsync-caregiver-observation/v1"},
+    "consentScope": "research_aggregate"
+  },
+  {
+    "schemaVersion": "caregiver-observation/v1",
+    "eventId": "synthetic-caregiver-assistance-none-001",
+    "eventType": "caregiver_observation",
+    "observationType": "assistance_required",
+    "occurred": false,
+    "observedAt": "2035-01-02T21:00:00+09:00",
+    "recordedAt": "2035-01-02T21:01:00+09:00",
+    "actorRole": "caregiver",
+    "actorId": "synthetic-caregiver-001",
+    "missingness": "confirmed_none",
+    "provenance": {"source": "parkinsync", "sourceRecordId": "synthetic-caregiver-record-002", "transformVersion": "parkinsync-caregiver-observation/v1"},
+    "consentScope": "research_aggregate"
+  }
+]

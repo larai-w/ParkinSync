@@ -46,6 +46,12 @@ or Medication Promise production exports, connect to a clinical EHR, or claim a 
 FHIR integration. These boundaries keep the public demonstration reproducible and prevent
 participant data from being treated as clinical interoperability evidence.
 
+The initial structured caregiver-observation contract is defined in
+[`docs/schemas/caregiver-observation-v1.schema.json`](docs/schemas/caregiver-observation-v1.schema.json)
+and exercised only by the synthetic fixture in `tests/fixtures/`. Version 1 is limited to `fall` and
+`assistance_required`, preserves caregiver actor/provenance/missingness, and is not wired to production
+ingestion or assigned a clinical terminology code.
+
 ---
 
 ## Why this exists

@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://veai.jp/schemas/caregiver-observation/v1.json",
+  "title": "VEAI Caregiver Observation v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "eventId", "eventType", "observationType", "occurred", "observedAt", "recordedAt", "actorRole", "missingness", "provenance", "consentScope"],
+  "properties": {
+    "schemaVersion": {"const": "caregiver-observation/v1"},
+    "eventId": {"type": "string", "pattern": "^synthetic-caregiver-[a-z0-9-]+$"},
+    "eventType": {"const": "caregiver_observation"},
+    "observationType": {"enum": ["fall", "assistance_required"]},
+    "occurred": {"type": "boolean"},
+    "observedAt": {"type": "string", "format": "date-time"},
+    "recordedAt": {"type": "string", "format": "date-time"},
+    "actorRole": {"const": "caregiver"},
+    "actorId": {"type": "string", "pattern": "^synthetic-caregiver-[a-z0-9-]+$"},
+    "missingness": {"enum": ["observed", "confirmed_none", "not_recorded"]},
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source", "sourceRecordId", "transformVersion"],
+      "properties": {
+        "source": {"const": "parkinsync"},
+        "sourceRecordId": {"type": "string", "minLength": 1},
+        "transformVersion": {"const": "parkinsync-caregiver-observation/v1"}
+      }
+    },
+    "consentScope": {"enum": ["personal_review", "research_aggregate"]}
+  }
+}
