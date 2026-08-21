@@ -198,14 +198,28 @@ def _is_already_processed(s3, bucket, document):
 
 
 def _mark_as_processed(s3, bucket, document):
-    """Tag the S3 object as processed to prevent reprocessing, preserving other tags."""
+    """Tag the S3 object as processed to prevent reprocessing, preserving other tags.
+
+    Returns True if the tag was written, False otherwise.
+
+    We do NOT raise on failure. This runs *after* the rows have been appended to
+    the spreadsheet, so raising would let the Lambda retry and duplicate them.
+    But a silent failure is worse in a different way: the object stays untagged,
+    looks unprocessed forever, and nobody finds out. So the failure is made loud
+    in the log and returned to the caller.
+    """
     try:
         resp = s3.get_object_tagging(Bucket=bucket, Key=document)
         existing = [t for t in resp.get('TagSet', []) if t['Key'] != _PROCESSED_TAG]
         existing.append({'Key': _PROCESSED_TAG, 'Value': _PROCESSED_VALUE})
         s3.put_object_tagging(Bucket=bucket, Key=document, Tagging={'TagSet': existing})
+        return True
     except Exception as e:
-        print(f"[IDEMPOTENCY] Failed to tag object: {e}")
+        # [TAGGING FAILED] is the string to alarm on. Rows were already written,
+        # so the data is not lost -- but the object will be reprocessed if the
+        # same S3 event fires again.
+        print(f"[TAGGING FAILED] {document}: {e}")
+        return False
 
 
 def lambda_handler(event, context):
@@ -333,9 +347,15 @@ def lambda_handler(event, context):
             ).execute()
 
         # 5. Mark as processed to prevent re-ingestion on duplicate S3 events.
-        _mark_as_processed(s3, bucket, key)
+        tagged = _mark_as_processed(s3, bucket, key)
 
-        return {'statusCode': 200, 'body': f'Successfully processed {len(final_data_batch)} rows.'}
+        # Report the tagging outcome in the response. Previously a tagging failure
+        # was invisible: the rows landed, the Lambda returned 200, and the object
+        # stayed untagged. Callers and logs could not tell the two cases apart.
+        body = f'Successfully processed {len(final_data_batch)} rows.'
+        if not tagged:
+            body += ' WARNING: object could not be tagged as processed.'
+        return {'statusCode': 200, 'body': body, 'tagged': tagged}
 
     except Exception as e:
         print(f"[CRITICAL ERROR] {str(e)}")
