@@ -140,6 +140,19 @@ class TestTelemetryHandler(unittest.TestCase):
 
         result = logger.lambda_handler({"id": "event-123"}, None)
 
+        # build() は googleapiclient の実物ではなくモック。**モックは何でも
+        # 受け取るので、引数が不正でも通ってしまう。** 実際 2026-08-14 以降、
+        # 本番では毎回 ValueError で落ちていたのにここは緑だった。
+        # 呼び出し引数そのものを検査する。
+        build_kwargs = mock_build.call_args.kwargs
+        self.assertNotIn(
+            "credentials", build_kwargs,
+            "build() に credentials と http を両方渡すと googleapiclient が "
+            "ValueError を投げる（http と credentials は排他）。"
+            "AuthorizedHttp が既に creds を持っている",
+        )
+        self.assertIn("http", build_kwargs, "タイムアウト付きの http を渡すこと")
+
         self.assertEqual(result["statusCode"], 200)
         self.assertEqual(json.loads(result["body"])["aggregate"], "updated")
         values_api.append.assert_called_once_with(

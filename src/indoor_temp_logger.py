@@ -276,6 +276,13 @@ def lambda_handler(event, context):
             secrets,
             scopes=["https://www.googleapis.com/auth/spreadsheets"],
         )
+        # AuthorizedHttp は creds を内側に持つ。build() に credentials と http を
+        # 両方渡すと googleapiclient が ValueError を投げる:
+        #   "Arguments http and credentials are mutually exclusive"
+        # 例外は下の except で握られてログに出るだけなので Lambda の Errors は
+        # 0 のまま。**毎回この行で落ちて室温が記録されていなかった**
+        # （2026-08-21 に発見）。タイムアウトのための http を残し、
+        # 重複している credentials を落とす。
         sheets_http = google_auth_httplib2.AuthorizedHttp(
             creds,
             http=httplib2.Http(timeout=SHEETS_HTTP_TIMEOUT),
@@ -283,7 +290,6 @@ def lambda_handler(event, context):
         service = build(
             "sheets",
             "v4",
-            credentials=creds,
             http=sheets_http,
             cache_discovery=False,
             num_retries=0,
