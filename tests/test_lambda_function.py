@@ -161,6 +161,39 @@ class TestIdempotency(unittest.TestCase):
         self.assertIn('UploadedBy', keys)
         self.assertIn('ParkinSync-Status', keys)
 
+    def test_mark_as_processed_returns_true_on_success(self):
+        s3 = self._make_s3()
+        self.assertTrue(handler._mark_as_processed(s3, 'bucket', 'key.jpg'))
+
+    def test_tagging_failure_is_reported_not_swallowed(self):
+        """A tagging failure used to be printed and forgotten.
+
+        The object then looked unprocessed forever and nobody found out.
+        It must not raise (the rows are already written, and a retry would
+        duplicate them), but it must be visible: False to the caller, and a
+        greppable marker in the log.
+        """
+        s3 = MagicMock()
+        s3.get_object_tagging.return_value = {'TagSet': []}
+        s3.put_object_tagging.side_effect = Exception('AccessDenied')
+
+        with patch('builtins.print') as fake_print:
+            result = handler._mark_as_processed(s3, 'bucket', 'key.jpg')
+
+        self.assertFalse(result, 'a failed tagging must report False')
+        printed = ' '.join(str(c) for c in fake_print.call_args_list)
+        self.assertIn('[TAGGING FAILED]', printed,
+                      'the failure must be greppable in the log')
+
+    def test_tagging_failure_does_not_raise(self):
+        """Raising here would let the Lambda retry and duplicate spreadsheet rows."""
+        s3 = MagicMock()
+        s3.get_object_tagging.side_effect = Exception('boom')
+        try:
+            handler._mark_as_processed(s3, 'bucket', 'key.jpg')
+        except Exception as exc:  # pragma: no cover
+            self.fail(f'_mark_as_processed must not raise, but raised {exc}')
+
 
 class TestQuarantine(unittest.TestCase):
 
