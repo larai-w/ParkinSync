@@ -127,6 +127,11 @@ The [ephemeral HAPI round trip](server/README.md) submits that synthetic weekly 
 checks every transaction response, reads all 30 resources back, and permits only documented
 server-managed metadata and reference-resolution differences.
 
+The [mapping-loss inventory](analysis/README.md) records the qualitative coding decisions used to
+classify where the source-to-FHIR mapping can lose or blur meaning. A standard-library-only check
+validates the labels and reproduces the manuscript counts without treating those author-coded labels
+as an independent assessment of FHIR.
+
 The [NZ Base profile-validation track](nzbase/README.md) adds only reviewed `meta.profile`
 declarations to a derivative of the weekly Bundle. It explicitly leaves Observation and CarePlan at
 base R4 and refuses to fabricate an NHI, NZ-specific demographics, or NZMT coding.

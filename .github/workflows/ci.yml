@@ -102,6 +102,9 @@ jobs:
       - name: Check deterministic JP Core derivative artifacts
         run: python scripts/generate_jpcore_fhir.py --check
 
+      - name: Reproduce P1 mapping-loss counts
+        run: python scripts/classify_mapping_loss.py --check
+
       - name: Validate generated artifacts with HL7 Validator CLI
         run: scripts/validate_fhir_r4.sh
 
