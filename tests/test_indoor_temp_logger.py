@@ -429,5 +429,254 @@ class TestRetryTimeBudget(unittest.TestCase):
         )
 
 
+class TestBackfillMissingAggregates(unittest.TestCase):
+    """行があとからできた日の集計を埋め直す（CSI-021）。
+
+    `sync_daily_aggregate` は**今日の日付でしか呼ばれない**。だがマスターの
+    行ができるのは、紙の介護記録がスキャンされたとき——普通は計測より
+    ずっとあと。その結果、行ができたときには**埋めにいく実行が二度と来ない。**
+
+    計測値は `TempHistory` に残っているのに、**集計だけが永久に書かれない。**
+    実際、45日間55回すべてが `master-date-missing` だった。
+    """
+
+    TODAY = datetime.date(2026, 4, 20)
+
+    def _service(self, date_rows, agg_rows):
+        service = MagicMock()
+        values_api = service.spreadsheets.return_value.values.return_value
+        values_api.get.return_value.execute.side_effect = [
+            {"values": date_rows},
+            {"values": agg_rows},
+        ]
+        values_api.batchUpdate.return_value.execute.return_value = {}
+        return service, values_api
+
+    def _telemetry(self, *dates):
+        rows = []
+        for d in dates:
+            rows.append([f"{d} 09:00", 20.0, f"e-{d}-1"])
+            rows.append([f"{d} 12:00", 24.0, f"e-{d}-2"])
+        return rows
+
+    def test_fills_a_day_whose_row_appeared_later(self):
+        """行ができた過去の日を埋める。**これができないと永久に空のまま。**"""
+        service, values_api = self._service(
+            date_rows=[["2026-04-18"], ["2026-04-19"]],
+            agg_rows=[[], []],                      # U:X は空
+        )
+        result = logger.backfill_missing_aggregates(
+            service, "sheet-id", self._telemetry("2026-04-19"), self.TODAY, days=5
+        )
+        self.assertEqual(result["filled"], 1, result)
+        self.assertEqual(result["dates"], ["2026-04-19"])
+
+        call = values_api.batchUpdate.call_args.kwargs
+        data = call["body"]["data"]
+        self.assertEqual(len(data), 1)
+        # 2行目が 2026-04-18、3行目が 2026-04-19
+        self.assertEqual(data[0]["range"], "'Sheet1'!U3:X3")
+        self.assertEqual(data[0]["values"][0][1:], [22.0, 20.0, 24.0])
+
+    def test_never_overwrites_an_existing_aggregate(self):
+        """既に入っている値を上書きしない。
+
+        **手で直した内容を壊さない。** 埋め直しは「空を埋める」だけ。
+        """
+        service, values_api = self._service(
+            date_rows=[["2026-04-19"]],
+            agg_rows=[["Avg:99.00/Min:99.00/Max:99.00", 99, 99, 99]],
+        )
+        result = logger.backfill_missing_aggregates(
+            service, "sheet-id", self._telemetry("2026-04-19"), self.TODAY, days=5
+        )
+        self.assertEqual(result["filled"], 0)
+        values_api.batchUpdate.assert_not_called()
+
+    def test_skips_days_without_telemetry(self):
+        """計測値が無い日は触らない。"""
+        service, values_api = self._service(
+            date_rows=[["2026-04-19"]], agg_rows=[[]]
+        )
+        result = logger.backfill_missing_aggregates(
+            service, "sheet-id", [], self.TODAY, days=5
+        )
+        self.assertEqual(result["filled"], 0)
+        values_api.batchUpdate.assert_not_called()
+
+    def test_skips_duplicate_master_rows(self):
+        """同じ日付の行が2つあるときは触らない。
+
+        どちらに書くべきか決められない。**迷ったら書かない。**
+        """
+        service, values_api = self._service(
+            date_rows=[["2026-04-19"], ["2026-04-19"]],
+            agg_rows=[[], []],
+        )
+        result = logger.backfill_missing_aggregates(
+            service, "sheet-id", self._telemetry("2026-04-19"), self.TODAY, days=5
+        )
+        self.assertEqual(result["filled"], 0)
+        values_api.batchUpdate.assert_not_called()
+
+    def test_api_calls_do_not_grow_with_the_number_of_days(self):
+        """日数を増やしても API 呼び出しを増やさない。
+
+        **CSI-018 の教訓。** リトライ予算が Lambda の時間に収まらず
+        60秒でタイムアウトしていた。**足し算を先に確かめる。**
+
+        読み2回・書き1回に固定されていること。
+        """
+        dates = [f"2026-03-{d:02d}" for d in range(1, 29)]
+        service, values_api = self._service(
+            date_rows=[[d] for d in dates],
+            agg_rows=[[] for _ in dates],
+        )
+        logger.backfill_missing_aggregates(
+            service, "sheet-id", self._telemetry(*dates), self.TODAY, days=120
+        )
+        self.assertEqual(values_api.get.call_count, 2,
+                         "読み取りが2回を超えている。日数に比例して増やさない")
+        self.assertEqual(values_api.batchUpdate.call_count, 1,
+                         "書き込みが1回を超えている。まとめて書くこと")
+
+    def test_fills_many_days_in_one_write(self):
+        """複数日ぶんを1回の書き込みでまとめる。"""
+        dates = ["2026-04-17", "2026-04-18", "2026-04-19"]
+        service, values_api = self._service(
+            date_rows=[[d] for d in dates],
+            agg_rows=[[] for _ in dates],
+        )
+        result = logger.backfill_missing_aggregates(
+            service, "sheet-id", self._telemetry(*dates), self.TODAY, days=10
+        )
+        self.assertEqual(result["filled"], 3)
+        self.assertEqual(len(values_api.batchUpdate.call_args.kwargs["body"]["data"]), 3)
+
+    def test_today_is_not_backfilled(self):
+        """当日は `sync_daily_aggregate` の担当。**二重に書かない。**"""
+        service, values_api = self._service(
+            date_rows=[["2026-04-20"]], agg_rows=[[]]
+        )
+        result = logger.backfill_missing_aggregates(
+            service, "sheet-id", self._telemetry("2026-04-20"), self.TODAY, days=5
+        )
+        self.assertEqual(result["filled"], 0)
+        values_api.batchUpdate.assert_not_called()
+
+    @patch("indoor_temp_logger.build")
+    @patch("indoor_temp_logger.service_account.Credentials.from_service_account_info")
+    @patch("indoor_temp_logger.requests.get")
+    @patch("indoor_temp_logger.boto3.client")
+    @patch("indoor_temp_logger.current_sample_time")
+    def test_backfill_failure_does_not_break_the_main_flow(
+        self, mock_sample_time, mock_boto, mock_get, mock_credentials, mock_build
+    ):
+        """埋め直しが失敗しても、その回の記録は成立する。
+
+        **補修が本業を巻き込まないようにする。** サンプルの記録も当日の集計も
+        既に済んでいる段階で走るので、ここで落ちて全部を無駄にする理由がない。
+        """
+        mock_sample_time.return_value = datetime.datetime(
+            2026, 4, 20, 9, 0, tzinfo=logger.JST
+        )
+        secrets_client = MagicMock()
+        secrets_client.get_secret_value.return_value = {
+            "SecretString": (
+                '{"SWITCHBOT_TOKEN":"token","SWITCHBOT_SECRET":"secret",'
+                '"SWITCHBOT_DEVICE_ID":"device","GOOGLE_SHEET_ID":"sheet-id"}'
+            )
+        }
+        mock_boto.return_value = secrets_client
+
+        switchbot_response = MagicMock()
+        switchbot_response.json.return_value = {"body": {"temperature": 20.5}}
+        mock_get.return_value = switchbot_response
+
+        service = MagicMock()
+        values_api = service.spreadsheets.return_value.values.return_value
+        values_api.get.return_value.execute.side_effect = [
+            {"values": []},                 # TempHistory
+            {"values": [["2026-04-20"]]},   # 当日の集計用（成功）
+            RuntimeError("sheets unavailable"),   # 埋め直しの読み取りで失敗
+        ]
+        values_api.append.return_value.execute.return_value = {}
+        values_api.update.return_value.execute.return_value = {}
+        mock_build.return_value = service
+        mock_credentials.return_value = MagicMock()
+
+        captured = io.StringIO()
+        with contextlib.redirect_stdout(captured):
+            result = logger.lambda_handler({"id": "event-123"}, None)
+        printed = captured.getvalue()
+
+        # 本業は成立している
+        self.assertEqual(result["statusCode"], 200)
+        body = json.loads(result["body"])
+        self.assertEqual(body["sample"], "logged")
+        self.assertEqual(body["aggregate"], "updated")
+        self.assertEqual(body["backfilled"], 0)
+
+        # **黙らせない。** 失敗したことはログに残す
+        self.assertIn("Backfill skipped", printed, printed)
+
+    @patch("indoor_temp_logger.backfill_missing_aggregates")
+    @patch("indoor_temp_logger.build")
+    @patch("indoor_temp_logger.service_account.Credentials.from_service_account_info")
+    @patch("indoor_temp_logger.requests.get")
+    @patch("indoor_temp_logger.boto3.client")
+    @patch("indoor_temp_logger.current_sample_time")
+    def test_handler_actually_calls_the_backfill(
+        self, mock_sample_time, mock_boto, mock_get, mock_credentials,
+        mock_build, mock_backfill
+    ):
+        """埋め直しが**実際に呼ばれている**ことを固定する。
+
+        ⚠️ **これが無いと、配線が外れても気づけない。**
+        補修の失敗は握りつぶす設計なので、`backfill_missing_aggregates` の
+        呼び出しごと消えても、他のテストは全部緑のまま通る。
+        **握りつぶす処理は、呼ばれたこと自体を別に確かめる。**
+        """
+        mock_backfill.return_value = {"filled": 2, "dates": ["2026-04-18", "2026-04-19"]}
+        mock_sample_time.return_value = datetime.datetime(
+            2026, 4, 20, 9, 0, tzinfo=logger.JST
+        )
+        secrets_client = MagicMock()
+        secrets_client.get_secret_value.return_value = {
+            "SecretString": (
+                '{"SWITCHBOT_TOKEN":"token","SWITCHBOT_SECRET":"secret",'
+                '"SWITCHBOT_DEVICE_ID":"device","GOOGLE_SHEET_ID":"sheet-id"}'
+            )
+        }
+        mock_boto.return_value = secrets_client
+        switchbot_response = MagicMock()
+        switchbot_response.json.return_value = {"body": {"temperature": 20.5}}
+        mock_get.return_value = switchbot_response
+
+        service = MagicMock()
+        values_api = service.spreadsheets.return_value.values.return_value
+        values_api.get.return_value.execute.side_effect = [
+            {"values": []},
+            {"values": [["2026-04-20"]]},
+        ]
+        values_api.append.return_value.execute.return_value = {}
+        values_api.update.return_value.execute.return_value = {}
+        mock_build.return_value = service
+        mock_credentials.return_value = MagicMock()
+
+        captured = io.StringIO()
+        with contextlib.redirect_stdout(captured):
+            result = logger.lambda_handler({"id": "event-123"}, None)
+        printed = captured.getvalue()
+
+        mock_backfill.assert_called_once()
+        # 当日の日付を渡していること（未来や別の日を渡していない）
+        self.assertEqual(mock_backfill.call_args.args[3], datetime.date(2026, 4, 20))
+
+        self.assertEqual(json.loads(result["body"])["backfilled"], 2)
+        self.assertIn("backfilled=2", printed, printed)
+        self.assertIn("2026-04-18", printed, "埋めた日付をログに残していない")
+
+
 if __name__ == "__main__":
     unittest.main()
