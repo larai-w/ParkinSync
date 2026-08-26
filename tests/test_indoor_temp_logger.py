@@ -1,6 +1,9 @@
 import contextlib
 import datetime
 import io
+import time
+
+import requests
 import json
 import unittest
 from unittest.mock import MagicMock, patch
@@ -324,6 +327,106 @@ class TestTelemetryHandler(unittest.TestCase):
 
         self.assertIn("Telemetry success", printed, printed)
         self.assertNotIn("Telemetry incomplete", printed, printed)
+
+
+class TestRetryTimeBudget(unittest.TestCase):
+    """リトライ予算が、関数全体の時間に収まることを固定する。
+
+    2026-08-26 に数えて分かったこと:
+
+        試行1 15秒 + 待機1秒 + 試行2 15秒 + 待機2秒 + 試行3 15秒 + 待機4秒 = **52秒**
+
+    Lambda のタイムアウトは **60秒**。通常の Sheets 処理だけで **13〜15秒**。
+    **最悪ケースで残るのは8秒しかなく、本処理が入らない。**
+
+    実際 7/27・7/28・7/29・7/31・8/1・8/2・8/25 に60秒でタイムアウトしていた。
+
+    **どちらの部品も、単体では正しかった。** リトライは3回が妥当で、
+    タイムアウト15秒も妥当。**足し算だけが誰も見ていなかった。**
+    """
+
+    def test_the_numbers_cannot_coexist_without_a_deadline(self):
+        """締切が無いと、リトライ予算だけで Lambda の時間を食い潰す。
+
+        この計算が変わったら（試行回数・タイムアウト・待機のどれかを触ったら）
+        ここが落ちる。**落ちたら足し算をやり直すこと。**
+        """
+        attempts, timeout = 3, 15
+        worst = sum(timeout + 2 ** a for a in range(attempts))
+        lambda_timeout = 60
+        typical_sheets_work = 15
+
+        self.assertGreater(
+            worst + typical_sheets_work,
+            lambda_timeout,
+            "前提が変わった。リトライ予算が関数の時間に収まるなら、このテストは不要",
+        )
+        self.assertLess(
+            logger.SHEETS_TIME_RESERVE_SECONDS,
+            lambda_timeout,
+            "Sheets 用の確保が Lambda のタイムアウトを超えている",
+        )
+        self.assertGreaterEqual(
+            logger.SHEETS_TIME_RESERVE_SECONDS,
+            typical_sheets_work,
+            "Sheets の通常処理（約15秒）より確保が少ない。足りない",
+        )
+
+    def test_retry_stops_before_eating_the_sheets_budget(self):
+        """締切を渡すと、Sheets の分を残して諦める。
+
+        **タイムアウトしたリトライは成果物を残さない。** 60秒使って何も書かず
+        次の実行を待つより、**早く諦めて1回分を書く**ほうがいい。
+        """
+        calls = []
+
+        def slow_get(*args, **kwargs):
+            calls.append(1)
+            raise requests.Timeout("simulated")
+
+        # 残り20秒しかない状況。1回の試行(15秒)を始めたら確保分を割る
+        deadline = time.monotonic() + 5
+        with patch("indoor_temp_logger.requests.get", side_effect=slow_get):
+            with self.assertRaises((requests.Timeout, TimeoutError)):
+                logger._switchbot_status("u", "t", "s", deadline=deadline)
+
+        self.assertEqual(
+            calls, [],
+            "締切を超えると分かっているのに試行を始めている",
+        )
+
+    def test_no_deadline_keeps_the_old_behaviour(self):
+        """締切を渡さなければ従来どおり（テスト・手元実行のため）。"""
+        calls = []
+
+        def failing(*args, **kwargs):
+            calls.append(1)
+            raise requests.ConnectionError("simulated")
+
+        with patch("indoor_temp_logger.requests.get", side_effect=failing):
+            with patch("indoor_temp_logger.time.sleep"):   # 待機は飛ばす
+                with self.assertRaises(requests.ConnectionError):
+                    logger._switchbot_status("u", "t", "s")
+
+        self.assertEqual(len(calls), 3, "試行回数が変わっている")
+
+    def test_deadline_comes_from_the_lambda_context(self):
+        """締切は Lambda の残り時間から計算する。決め打ちにしない。"""
+        class Ctx:
+            def get_remaining_time_in_millis(self):
+                return 60_000
+
+        before = time.monotonic()
+        deadline = logger._switchbot_deadline(Ctx())
+        self.assertIsNotNone(deadline)
+        # 60秒 - 確保分 の位置にあること（実行時間ぶんの誤差を許容）
+        expected = before + 60 - logger.SHEETS_TIME_RESERVE_SECONDS
+        self.assertAlmostEqual(deadline, expected, delta=1.0)
+
+        self.assertIsNone(
+            logger._switchbot_deadline(None),
+            "context が無いときは締切なし（従来どおり）にすること",
+        )
 
 
 if __name__ == "__main__":

@@ -231,23 +231,67 @@ def _signed_headers(token, secret):
     }
 
 
-def _switchbot_status(url, token, secret, attempts=3, timeout=15):
+def _switchbot_status(url, token, secret, attempts=3, timeout=15, deadline=None):
     """GET device status, retrying transient timeouts/connection errors.
 
     Auth failures (401/4xx) fail fast via raise_for_status (not retried), since
     those indicate a credential/signing problem, not a transient one. Each retry
     re-signs with a fresh timestamp and nonce.
+
+    リトライ予算は、それ単体では成立していても**関数全体の時間には収まらない**。
+    2026-08-26 に数えたところ:
+
+        試行1 15秒 + 待機1秒 + 試行2 15秒 + 待機2秒 + 試行3 15秒 + 待機4秒 = **52秒**
+
+    Lambda のタイムアウトは **60秒**。ところが通常の Sheets 処理だけで
+    **13〜15秒**かかる。**最悪ケースで残るのは8秒しかなく、本処理が入らない。**
+
+    実際 7/27・7/28・7/29・7/31・8/1・8/2・8/25 に 60秒でタイムアウトし、
+    Lambda が自動リトライしていた（重複は `sample_already_logged` が防いだ）。
+
+    ⚠️ **タイムアウトしたリトライは、成果物を残さない。** 60秒使って何も書かず、
+    次の実行を待つことになる。**待つくらいなら、早く諦めて1回分を書くほうがいい。**
+
+    `deadline`（`time.monotonic()` 基準の秒）を渡すと、**次の試行が締切を
+    超えると分かった時点でリトライをやめる。** 呼び出し側が Lambda の残り時間から
+    計算する。渡さなければ従来どおり（テストと手元実行のため）。
     """
     last_exc = None
     for attempt in range(attempts):
+        if deadline is not None and time.monotonic() + timeout > deadline:
+            # この試行を始めても締切に間に合わない。**始めない。**
+            print(
+                f"SwitchBot retry budget exhausted: giving up after {attempt} attempt(s) "
+                f"to leave time for the Sheets update"
+            )
+            break
         try:
             response = requests.get(url, headers=_signed_headers(token, secret), timeout=timeout)
             response.raise_for_status()
             return response
         except (requests.Timeout, requests.ConnectionError) as exc:
             last_exc = exc
-            time.sleep(2 ** attempt)
+            if attempt < attempts - 1:
+                time.sleep(2 ** attempt)
+    if last_exc is None:
+        # 1回も試行せずに締切で抜けた場合
+        raise TimeoutError("SwitchBot request skipped: not enough time left in this invocation")
     raise last_exc
+
+
+# Sheets の処理に残す時間（秒）。通常13〜15秒かかるので、余裕を持たせる。
+SHEETS_TIME_RESERVE_SECONDS = 25
+
+
+def _switchbot_deadline(context):
+    """SwitchBot のリトライに使ってよい締切を、Lambda の残り時間から決める。
+
+    `context` が無い（テスト・手元実行）ときは `None` を返し、従来どおり動く。
+    """
+    remaining_ms = getattr(context, "get_remaining_time_in_millis", None)
+    if not callable(remaining_ms):
+        return None
+    return time.monotonic() + (remaining_ms() / 1000.0) - SHEETS_TIME_RESERVE_SECONDS
 
 
 def lambda_handler(event, context):
@@ -263,7 +307,12 @@ def lambda_handler(event, context):
         spreadsheet_id = secrets["GOOGLE_SHEET_ID"]
 
         url = f"https://api.switch-bot.com/v1.1/devices/{device_id}/status"
-        response = _switchbot_status(url, token, secret)
+        # Sheets の読み書きに通常13〜15秒かかる。**その分を必ず残す。**
+        # 残さないと、SwitchBot のリトライに時間を使い切って関数ごと
+        # タイムアウトし、**1件も記録できずに終わる。**
+        response = _switchbot_status(
+            url, token, secret, deadline=_switchbot_deadline(context)
+        )
         indoor_temp = _temperature(response.json()["body"]["temperature"])
         if indoor_temp is None:
             raise ValueError("SwitchBot returned a non-numeric temperature")
