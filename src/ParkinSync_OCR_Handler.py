@@ -163,6 +163,33 @@ _PERMANENT_FAILURES = frozenset({
 })
 
 
+def _failure_reason(exc):
+    """隔離の理由を、**受け取った人が次にできること**まで書く。
+
+    2026-08-21 に3件の介護記録が隔離されたが、通知に書かれていたのは
+    `処理中のエラー: An error occurred (UnsupportedDocumentException) ...` だけで、
+    **何をすれば取り込めるのかが書いていなかった。** 結果、3件は隔離されたまま。
+
+    隔離された3件を数えたところ、**すべて2ページ**だった。
+    処理できたものは**すべて1ページ**。
+    Textract の同期 API（`analyze_document`）は**1ページの PDF しか受け付けない。**
+
+    **1ページずつに分けて `incoming/` へ入れ直せば、いまのコードで取り込める。**
+    （このハンドラは表を1つしか読まない実装なので、
+      1ページ1表になる分割のほうが、非同期 API 化より確実。）
+    """
+    name = type(exc).__name__
+    code = getattr(exc, "response", {}).get("Error", {}).get("Code", "")
+    if "UnsupportedDocument" in name or "UnsupportedDocument" in code:
+        return (
+            "複数ページの PDF は取り込めません"
+            "（Textract の同期 API は1ページのみ対応）。\n"
+            "**1ページずつに分けて incoming/ へ入れ直してください。**\n"
+            f"元のエラー: {exc}"
+        )
+    return f"処理中のエラー: {exc}"
+
+
 def _is_permanent_failure(exc):
     """リトライしても結果が変わらない失敗か。
 
@@ -385,7 +412,7 @@ def lambda_handler(event, context):
 
     except Exception as e:
         print(f"[CRITICAL ERROR] {str(e)}")
-        _quarantine_and_notify(s3, bucket, key, f"処理中のエラー: {str(e)}")
+        _quarantine_and_notify(s3, bucket, key, _failure_reason(e))
 
         # **もう一度やっても結果が変わらない失敗は、投げ直さない。**
         #
