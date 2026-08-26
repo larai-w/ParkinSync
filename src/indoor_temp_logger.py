@@ -322,8 +322,20 @@ def lambda_handler(event, context):
             sample_time.date(),
         )
 
+        # 集計まで終わって初めて「成功」と書く。
+        #
+        # `master-date-missing` は Master シートに対象日の行が無い状態で、
+        # **依頼された仕事（日次の平均・最低・最高の書き込み）が行われていない。**
+        # docs/USER_GUIDE.md には対処が書いてあるので想定内の状態ではあるが、
+        # 2026-08-26 に CloudWatch を数えたら **45日間・55回すべてこれで、
+        # `updated` は0回**だった。それでも行の頭が `Telemetry success` なので、
+        # 誰も気づかないまま日次集計が1度も書かれていなかった。
+        #
+        # 語尾を分けて、grep とメトリクスフィルタで拾えるようにする。
+        aggregate_done = aggregate_result["status"] == "updated"
+        label = "Telemetry success" if aggregate_done else "Telemetry incomplete"
         print(
-            f"Telemetry success: sample={'duplicate' if duplicate else 'logged'} "
+            f"{label}: sample={'duplicate' if duplicate else 'logged'} "
             f"aggregate={aggregate_result['status']}"
         )
         return {
