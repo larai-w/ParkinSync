@@ -14,6 +14,8 @@ python3 test_roundtrip.py
 |---|---|
 | `data/gutpacer_synthetic.json` | 合成入力（3日: 排便2+モビ1 / 排便0(confirmed_none)+モビ2 / 排便1+モビ欠測） |
 | `schema/care-event-v1.schema.json` | 共通契約（正本のコピー） |
+| `check_schema_drift.py` | GutPacer repoの正本と意味的に一致することを検査 |
+| `test_schema_drift.py` | 整形差を許容し、契約値の変更を検出するguardの負テスト |
 | `gutpacer_export.py` | GutPacerログ → care-event-v1（producer） |
 | `validate.py` | care-event-v1 最小スキーマ検証（依存ゼロ） |
 | `parkinsync_import.py` | care-event → ParkinSync日次 Bowel/Movi（consumer） |
@@ -35,4 +37,7 @@ python3 test_roundtrip.py
 
 ## CI統合（済）
 ParkinSync `.github/workflows/ci.yml` に `care-event-integration-poc` ジョブとして統合済み。
-push/PR ごとに `python3 poc/gutpacer-parkinsync/test_roundtrip.py` を実行し、連携契約の破壊を fail-closed に検知する（S2/S4）。合成データのみ。
+push/PR ごとにGutPacer repoのcanonical schemaをcheckoutし、JSONの整形、object key順、
+`required` / `enum`の配列順を除いて本コピーと一致することを先に検査する。その後
+`python3 poc/gutpacer-parkinsync/test_roundtrip.py` を実行し、連携契約の破壊を
+fail-closedに検知する（S2/S4）。合成データのみ。
