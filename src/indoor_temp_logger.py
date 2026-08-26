@@ -360,11 +360,21 @@ def _switchbot_status(url, token, secret, attempts=3, timeout=15, deadline=None)
                 f"to leave time for the Sheets update"
             )
             break
+        started = time.monotonic()
         try:
             response = requests.get(url, headers=_signed_headers(token, secret), timeout=timeout)
             response.raise_for_status()
+            # **所要時間を残す。** 2026-08-26 時点で、150日のうち約3%が
+            # タイムアウトしていたが、**普段どれくらいで返るかを誰も測っていなかった。**
+            # タイムアウト15秒が妥当かを判断する材料が無い状態だった。
+            # 数字をいじる前に、まず測る。
+            print(f"SwitchBot response: {int((time.monotonic() - started) * 1000)}ms "
+                  f"attempt={attempt + 1}")
             return response
         except (requests.Timeout, requests.ConnectionError) as exc:
+            elapsed = int((time.monotonic() - started) * 1000)
+            print(f"SwitchBot failed: {elapsed}ms attempt={attempt + 1} "
+                  f"{type(exc).__name__}")
             last_exc = exc
             if attempt < attempts - 1:
                 time.sleep(2 ** attempt)

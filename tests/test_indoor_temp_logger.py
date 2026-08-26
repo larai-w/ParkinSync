@@ -677,6 +677,52 @@ class TestBackfillMissingAggregates(unittest.TestCase):
         self.assertIn("backfilled=2", printed, printed)
         self.assertIn("2026-04-18", printed, "埋めた日付をログに残していない")
 
+    def test_successful_call_logs_its_duration(self):
+        """成功した呼び出しの所要時間を残す。
+
+        2026-08-26 時点で、150日のうち**約3%がタイムアウト**していた
+        （895回中29回）。にもかかわらず、**普段どれくらいで返るかを
+        誰も測っていなかった。**
+
+        タイムアウト15秒が妥当かを判断する材料が無い状態だった。
+        通常の実行は13〜15秒だが、その大半は Sheets の読み書きで、
+        SwitchBot の取り分は分からない。
+
+        **数字をいじる前に、まず測る。**
+        """
+        response = MagicMock()
+        response.raise_for_status.return_value = None
+
+        captured = io.StringIO()
+        with patch("indoor_temp_logger.requests.get", return_value=response):
+            with contextlib.redirect_stdout(captured):
+                logger._switchbot_status("u", "t", "s")
+
+        printed = captured.getvalue()
+        self.assertIn("SwitchBot response:", printed, printed)
+        self.assertIn("ms", printed, printed)
+        self.assertIn("attempt=1", printed, printed)
+
+    def test_failed_attempt_logs_its_duration_too(self):
+        """失敗した試行の所要時間も残す。
+
+        **成功だけ測っても、タイムアウトの実態は分からない。**
+        何秒で諦めたのかが分かって初めて、上限が妥当か判断できる。
+        """
+        captured = io.StringIO()
+        with patch("indoor_temp_logger.requests.get",
+                   side_effect=requests.Timeout("simulated")):
+            with patch("indoor_temp_logger.time.sleep"):
+                with contextlib.redirect_stdout(captured):
+                    with self.assertRaises(requests.Timeout):
+                        logger._switchbot_status("u", "t", "s")
+
+        printed = captured.getvalue()
+        self.assertIn("SwitchBot failed:", printed, printed)
+        self.assertIn("Timeout", printed, printed)
+        # 3回とも記録されていること（どの試行で落ちたかが分かる）
+        self.assertEqual(printed.count("SwitchBot failed:"), 3, printed)
+
 
 if __name__ == "__main__":
     unittest.main()
