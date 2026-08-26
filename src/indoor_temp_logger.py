@@ -165,6 +165,101 @@ def _format_summary(aggregate):
     )
 
 
+# 何日ぶんさかのぼって埋め直すか。
+# マスターの行は**紙の介護記録をスキャンしたとき**にできる。紙は月単位で
+# まとまるので、行ができるのは計測から数週間〜数か月あと。
+# 既定を短くすると、結局ほとんど埋まらない。
+BACKFILL_DAYS = int(os.environ.get("BACKFILL_DAYS", "120"))
+
+
+def _has_aggregate(agg_rows, row_number, start_row=2):
+    """マスターの U:X に既に値が入っているか。
+
+    **空のときだけ書く**ための判定。既にある値を上書きすると、
+    手で直した内容を壊す。
+    """
+    idx = row_number - start_row
+    if idx < 0 or idx >= len(agg_rows):
+        return False
+    return any(str(c).strip() for c in agg_rows[idx])
+
+
+def backfill_missing_aggregates(service, spreadsheet_id, telemetry_rows, today,
+                                days=None):
+    """行ができたあとの日付について、日次集計を埋め直す。
+
+    **なぜ要るか**（2026-08-26・CSI-021）
+
+    `sync_daily_aggregate` は**今日の日付でしか呼ばれない**。だが
+    マスターの行ができるのは、紙の介護記録がスキャンされたとき——
+    普通は計測より**ずっとあと**。
+
+    その結果、行ができたときには**埋めにいく実行が二度と来ない。**
+    計測値は `TempHistory` に残っているのに、**集計だけが永久に書かれない。**
+    実際、45日間55回すべてが `master-date-missing` だった。
+
+    **一度きりの機会を逃すと取り返せない処理は、必ず取りこぼす。**
+
+    **時間予算**（CSI-018 の教訓）
+
+    日数ぶんループしても API 呼び出しは増やさない。
+    **読み2回・書き1回に固定する**:
+
+      1. `B2:B`（日付列）を1回読む
+      2. `U2:X`（集計列）を1回読む
+      3. 埋める行をまとめて `batchUpdate` で1回書く
+
+    **空のときだけ書く。** 上書きはしない。
+    """
+    days = BACKFILL_DAYS if days is None else days
+    values_api = service.spreadsheets().values()
+
+    date_rows = values_api.get(
+        spreadsheetId=spreadsheet_id,
+        range=f"{_sheet_ref(MASTER_SHEET)}!B2:B",
+        valueRenderOption="FORMATTED_VALUE",
+        fields="values",
+    ).execute().get("values", [])
+
+    agg_rows = values_api.get(
+        spreadsheetId=spreadsheet_id,
+        range=f"{_sheet_ref(MASTER_SHEET)}!U2:X",
+        valueRenderOption="FORMATTED_VALUE",
+        fields="values",
+    ).execute().get("values", [])
+
+    updates = []
+    filled_dates = []
+    for back in range(1, days + 1):
+        day = today - datetime.timedelta(days=back)
+        aggregate = aggregate_telemetry_rows(telemetry_rows, day)
+        if aggregate is None:
+            continue                      # その日の計測値が無い
+        matches = _master_row_numbers(date_rows, day)
+        if len(matches) != 1:
+            continue                      # 行が無い / 重複している日は触らない
+        row_number = matches[0]
+        if _has_aggregate(agg_rows, row_number):
+            continue                      # 既に入っている。**上書きしない**
+        updates.append({
+            "range": f"{_sheet_ref(MASTER_SHEET)}!U{row_number}:X{row_number}",
+            "values": [[
+                _format_summary(aggregate),
+                aggregate["avg"], aggregate["min"], aggregate["max"],
+            ]],
+        })
+        filled_dates.append(str(day))
+
+    if not updates:
+        return {"filled": 0, "dates": []}
+
+    values_api.batchUpdate(
+        spreadsheetId=spreadsheet_id,
+        body={"valueInputOption": "RAW", "data": updates},
+    ).execute()
+    return {"filled": len(updates), "dates": filled_dates}
+
+
 def sync_daily_aggregate(service, spreadsheet_id, telemetry_rows, target_date):
     """Update U:X only when exactly one Master Sheet date row exists."""
     aggregate = aggregate_telemetry_rows(telemetry_rows, target_date)
@@ -383,15 +478,32 @@ def lambda_handler(event, context):
         # 語尾を分けて、grep とメトリクスフィルタで拾えるようにする。
         aggregate_done = aggregate_result["status"] == "updated"
         label = "Telemetry success" if aggregate_done else "Telemetry incomplete"
+        # 行があとからできた日の集計を埋め直す（CSI-021）。
+        #
+        # ⚠️ **本来の処理を終えてから行う。** ここで失敗しても、
+        # その回のサンプル記録と当日の集計は既に済んでいる。
+        # **補修が本業を巻き込まないようにする。**
+        backfill = {"filled": 0, "dates": []}
+        try:
+            backfill = backfill_missing_aggregates(
+                service, spreadsheet_id, telemetry_rows, sample_time.date()
+            )
+        except Exception as exc:          # noqa: BLE001 - 補修の失敗は本業を止めない
+            print(f"Backfill skipped: {exc}")
+
         print(
             f"{label}: sample={'duplicate' if duplicate else 'logged'} "
-            f"aggregate={aggregate_result['status']}"
+            f"aggregate={aggregate_result['status']} "
+            f"backfilled={backfill['filled']}"
         )
+        if backfill["filled"]:
+            print(f"Backfilled aggregates for: {', '.join(backfill['dates'])}")
         return {
             "statusCode": 200,
             "body": json.dumps({
                 "sample": "duplicate" if duplicate else "logged",
                 "aggregate": aggregate_result["status"],
+                "backfilled": backfill["filled"],
             }),
         }
 
