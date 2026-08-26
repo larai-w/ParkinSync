@@ -384,8 +384,29 @@ def _switchbot_status(url, token, secret, attempts=3, timeout=15, deadline=None)
     raise last_exc
 
 
-# Sheets の処理に残す時間（秒）。通常13〜15秒かかるので、余裕を持たせる。
-SHEETS_TIME_RESERVE_SECONDS = 25
+# ── 時間予算 ──────────────────────────────────────────────
+#
+# **守るべき不変条件はひとつ:**
+#
+#     SHEETS_TIME_RESERVE_SECONDS >= Sheets の実処理時間
+#
+# SwitchBot に許す時間は「Lambda の残り − 確保分」なので、確保分が
+# 実処理より小さいと**必ず溢れる。**
+#
+# 2026-08-26 の経緯:
+#   - 当初 Sheets は13〜15秒。確保25秒で足りていた
+#   - **埋め直し（PR #70）を足したら実測 35.7秒になった**（読み+2・書き+1）
+#   - 確保25秒のまま → SwitchBot に35秒許して Sheets が34秒 = **69秒**。
+#     Lambda のタイムアウト60秒を**9秒超える。**
+#     **PR #67 で直した「足し算が合わない」を、自分で作り直していた。**
+#
+# 対処: 確保を45秒へ、Lambda のタイムアウトを120秒へ（deploy.sh）。
+#   SwitchBot に許すのは 120-45 = 75秒。リトライ予算の最大52秒が丸ごと入る。
+#   最悪ケース 75+34 = 109秒 < 120秒。
+#
+# **部品を足したら、足し算をやり直す。**
+MEASURED_SHEETS_WORK_SECONDS = 34   # 2026-08-26 実測（埋め直し込み）
+SHEETS_TIME_RESERVE_SECONDS = int(os.environ.get("SHEETS_TIME_RESERVE_SECONDS", "45"))
 
 
 def _switchbot_deadline(context):

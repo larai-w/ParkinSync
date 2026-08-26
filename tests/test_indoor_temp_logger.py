@@ -1,4 +1,5 @@
 import contextlib
+import pathlib
 import datetime
 import io
 import time
@@ -345,31 +346,104 @@ class TestRetryTimeBudget(unittest.TestCase):
     タイムアウト15秒も妥当。**足し算だけが誰も見ていなかった。**
     """
 
-    def test_the_numbers_cannot_coexist_without_a_deadline(self):
-        """締切が無いと、リトライ予算だけで Lambda の時間を食い潰す。
+    def test_reserve_covers_the_actual_sheets_work(self):
+        """**守るべき不変条件はこれひとつ。**
 
-        この計算が変わったら（試行回数・タイムアウト・待機のどれかを触ったら）
-        ここが落ちる。**落ちたら足し算をやり直すこと。**
+            SHEETS_TIME_RESERVE_SECONDS >= Sheets の実処理時間
+
+        SwitchBot に許す時間は「Lambda の残り − 確保分」なので、
+        確保分が実処理より小さいと**必ず溢れる。**
+
+        2026-08-26 に実際にやった: 埋め直し（PR #70）を足したら Sheets が
+        13〜15秒 → **実測 35.7秒**になったのに、確保を25秒のままにした。
+        SwitchBot に35秒許して Sheets が34秒 = **69秒**。
+        Lambda のタイムアウト60秒を9秒超える。
+        **PR #67 で直した「足し算が合わない」を、自分で作り直していた。**
+
+        **部品を足したら、足し算をやり直す。**
         """
-        attempts, timeout = 3, 15
-        worst = sum(timeout + 2 ** a for a in range(attempts))
-        lambda_timeout = 60
-        typical_sheets_work = 15
+        self.assertGreaterEqual(
+            logger.SHEETS_TIME_RESERVE_SECONDS,
+            logger.MEASURED_SHEETS_WORK_SECONDS,
+            "確保分が Sheets の実処理時間より小さい。**必ずタイムアウトする**",
+        )
 
-        self.assertGreater(
-            worst + typical_sheets_work,
+    def test_switchbot_still_gets_room_for_its_retries(self):
+        """確保を増やしすぎて、リトライが1回も回らない形にしない。
+
+        **片方だけ直すと、もう片方が壊れる。**
+        Lambda のタイムアウト120秒 − 確保45秒 = 75秒。
+        リトライ予算の最大52秒が丸ごと入ること。
+        """
+        lambda_timeout = 120          # deploy.sh の IOT_LAMBDA_TIMEOUT
+        attempts, per_try = 3, 15
+        retry_budget = sum(per_try + 2 ** a for a in range(attempts))   # 52
+
+        for_switchbot = lambda_timeout - logger.SHEETS_TIME_RESERVE_SECONDS
+        self.assertGreaterEqual(
+            for_switchbot, retry_budget,
+            f"SwitchBot に許す時間 {for_switchbot}秒 がリトライ予算 {retry_budget}秒 に足りない",
+        )
+        self.assertLessEqual(
+            for_switchbot + logger.MEASURED_SHEETS_WORK_SECONDS,
             lambda_timeout,
-            "前提が変わった。リトライ予算が関数の時間に収まるなら、このテストは不要",
+            "最悪ケースの合計が Lambda のタイムアウトを超える",
+        )
+
+    def test_the_budget_fits_at_the_current_lambda_timeout(self):
+        """足し算が収まっていることを確かめる。
+
+        **経緯（2026-08-26 の一日で2回ずれた）**
+
+        1. 当初: リトライ予算52秒 + Sheets 13〜15秒 = **67秒 > 60秒**。
+           7/27〜8/25 に実際にタイムアウトしていた（CSI-018）
+        2. 締切を入れて上限を押さえた（PR #67）
+        3. **埋め直しを足したら Sheets が34秒になった**（PR #70）。
+           確保25秒のまま → SwitchBot 35秒 + Sheets 34秒 = **69秒 > 60秒**。
+           **直したはずの形を、自分で作り直していた**
+        4. タイムアウトを120秒・確保を45秒へ
+
+        いま: リトライ予算52秒 + Sheets 34秒 = **86秒 ≤ 120秒**。収まる。
+
+        **部品を足したら、足し算をやり直す。**
+        このテストは、どれか1つを触ったら落ちる。落ちたら計算し直すこと。
+        """
+        attempts, per_try = 3, 15
+        retry_budget = sum(per_try + 2 ** a for a in range(attempts))   # 52
+        lambda_timeout = 120          # deploy.sh の IOT_LAMBDA_TIMEOUT
+
+        self.assertLessEqual(
+            retry_budget + logger.MEASURED_SHEETS_WORK_SECONDS,
+            lambda_timeout,
+            f"リトライ予算 {retry_budget}秒 + Sheets {logger.MEASURED_SHEETS_WORK_SECONDS}秒 が "
+            f"Lambda のタイムアウト {lambda_timeout}秒 に収まらない。**足し算をやり直すこと**",
         )
         self.assertLess(
             logger.SHEETS_TIME_RESERVE_SECONDS,
             lambda_timeout,
             "Sheets 用の確保が Lambda のタイムアウトを超えている",
         )
-        self.assertGreaterEqual(
-            logger.SHEETS_TIME_RESERVE_SECONDS,
-            typical_sheets_work,
-            "Sheets の通常処理（約15秒）より確保が少ない。足りない",
+
+    def test_deadline_is_kept_even_though_the_budget_now_fits(self):
+        """収まるようになっても、締切は外さない。
+
+        **収まっているのは「いまの実測値なら」という条件付き。**
+        Sheets の処理が伸びたり、SwitchBot が今より遅くなれば、また溢れる。
+        実際、今日それが2回起きた。
+
+        締切は**測り直しを忘れたときの受け皿**として残す。
+        """
+        src = pathlib.Path(__file__).resolve().parents[1] / "src" / "indoor_temp_logger.py"
+        body = src.read_text(encoding="utf-8")
+        self.assertIn(
+            "deadline is not None and time.monotonic() + timeout > deadline",
+            body,
+            "締切の判定が消えている。**足し算が合っているうちは効かないが、外さない**",
+        )
+        self.assertIn(
+            "deadline=_switchbot_deadline(context)",
+            body,
+            "締切を渡す配線が外れている",
         )
 
     def test_retry_stops_before_eating_the_sheets_budget(self):

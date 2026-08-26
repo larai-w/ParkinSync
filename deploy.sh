@@ -25,7 +25,11 @@ RELEASE_DESCRIPTION="${RELEASE_DESCRIPTION:-ParkinSync release via deploy.sh}"
 # LAMBDA_TIMEOUT remains a compatibility override for both functions. Prefer the
 # per-function variables so one deployment does not change the other's setting.
 OCR_LAMBDA_TIMEOUT="${OCR_LAMBDA_TIMEOUT:-${LAMBDA_TIMEOUT:-90}}"
-IOT_LAMBDA_TIMEOUT="${IOT_LAMBDA_TIMEOUT:-${LAMBDA_TIMEOUT:-60}}"
+# 2026-08-26: 埋め直し（PR #70）で Sheets の処理が13〜15秒→約35秒に伸びた。
+# 60秒のままだと SwitchBot が詰まったとき合計69秒になり、**必ずタイムアウトする**。
+# 120秒にして、リトライ予算52秒＋Sheets 34秒が丸ごと収まるようにする。
+# **タイムアウトを伸ばしても、普段の課金時間は変わらない**（実行時間で課金される）。
+IOT_LAMBDA_TIMEOUT="${IOT_LAMBDA_TIMEOUT:-${LAMBDA_TIMEOUT:-120}}"
 
 for timeout_name in OCR_LAMBDA_TIMEOUT IOT_LAMBDA_TIMEOUT; do
   timeout_value="${!timeout_name}"
