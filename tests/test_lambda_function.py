@@ -269,6 +269,70 @@ class TestLambdaHandler(unittest.TestCase):
         self.assertIn('No table detected', response['body'])
         mock_s3.copy_object.assert_called_once()  # quarantine triggered
 
+    @patch('boto3.client')
+    def test_permanent_textract_failure_is_not_retried(self, mock_boto):
+        """もう一度やっても直らない失敗を投げ直さない。
+
+        2026-08-21 に3件の PDF が `UnsupportedDocumentException` で失敗した。
+        Textract の同期 API は複数ページ PDF を受け付けない。
+        **ファイルが変わらない限り、次も必ず同じ失敗になる。**
+
+        隔離も通知も正しく動いていたのに、そのあと投げ直していたため
+        Lambda が自動リトライし、**隔離コピーと通知メールが増え、
+        エラー率が膨らんで本当に直せる一時的な失敗が埋もれていた。**
+
+        この関数は既にこの区別を持っている（「テーブル未検出」は
+        隔離して 404 を返し、投げ直さない）。同じ扱いに揃える。
+        """
+        mock_s3, mock_textract, _ = self._mock_boto(mock_boto)
+
+        class UnsupportedDocumentException(Exception):
+            pass
+
+        mock_textract.analyze_document.side_effect = UnsupportedDocumentException(
+            "Request has unsupported document format"
+        )
+
+        response = handler.lambda_handler(self._event(), None)
+
+        self.assertEqual(response['statusCode'], 422)
+        self.assertTrue(response.get('quarantined'), "隔離した印が返っていない")
+        mock_s3.copy_object.assert_called_once()   # 隔離はする
+
+    @patch('boto3.client')
+    def test_transient_failure_is_still_raised(self, mock_boto):
+        """一時的かもしれない失敗は投げ直す。
+
+        **投げ直さなくした結果、何も鳴らなくなっては意味がない。**
+        Lambda のリトライに意味がある失敗は、これまでどおり投げる。
+        """
+        mock_s3, mock_textract, _ = self._mock_boto(mock_boto)
+
+        class ThrottlingException(Exception):
+            pass
+
+        mock_textract.analyze_document.side_effect = ThrottlingException("slow down")
+
+        with self.assertRaises(ThrottlingException):
+            handler.lambda_handler(self._event(), None)
+
+        mock_s3.copy_object.assert_called_once()   # 隔離はする
+
+    def test_permanent_failure_detected_from_client_error_code(self):
+        """botocore の ClientError は、中のエラーコードで判定する。
+
+        例外クラスはサービスのエラーコードから動的に作られるので、
+        **クラス名だけを見ていると取りこぼす。**
+        """
+        class ClientError(Exception):
+            def __init__(self, code):
+                super().__init__(code)
+                self.response = {'Error': {'Code': code}}
+
+        self.assertTrue(handler._is_permanent_failure(ClientError('UnsupportedDocumentException')))
+        self.assertFalse(handler._is_permanent_failure(ClientError('ThrottlingException')))
+        self.assertFalse(handler._is_permanent_failure(RuntimeError('boom')))
+
 
 if __name__ == '__main__':
     unittest.main()

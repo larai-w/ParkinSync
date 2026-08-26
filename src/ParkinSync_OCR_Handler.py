@@ -151,6 +151,32 @@ def get_historical_weather(date_str, api_key, fallback_month=None):
         return "Weather N/A", None
 
 
+# もう一度やっても結果が変わらない失敗。**リトライに意味が無い。**
+# Textract の同期 API（`analyze_document`）は複数ページ PDF を受け付けず、
+# `UnsupportedDocumentException` を返す。**ファイルが変わらない限り毎回失敗する。**
+_PERMANENT_FAILURES = frozenset({
+    "UnsupportedDocumentException",     # 形式が対象外（複数ページPDF・破損など）
+    "DocumentTooLargeException",        # 大きすぎる
+    "BadDocumentException",             # 読めない
+    "InvalidParameterException",        # 呼び出し方が間違っている
+    "UnsupportedActionException",
+})
+
+
+def _is_permanent_failure(exc):
+    """リトライしても結果が変わらない失敗か。
+
+    **判定は例外の名前で行う。** botocore の例外クラスはサービスの
+    エラーコードから動的に作られるので、`isinstance` では捕まえにくい。
+    """
+    name = type(exc).__name__
+    if name in _PERMANENT_FAILURES:
+        return True
+    # botocore の ClientError は、中のエラーコードを見る
+    code = getattr(exc, "response", {}).get("Error", {}).get("Code", "")
+    return code in _PERMANENT_FAILURES
+
+
 def _quarantine_and_notify(s3, bucket, document, reason):
     """
     Copy a failed image to the review/ prefix and send an SNS notification so a
@@ -360,4 +386,30 @@ def lambda_handler(event, context):
     except Exception as e:
         print(f"[CRITICAL ERROR] {str(e)}")
         _quarantine_and_notify(s3, bucket, key, f"処理中のエラー: {str(e)}")
+
+        # **もう一度やっても結果が変わらない失敗は、投げ直さない。**
+        #
+        # 2026-08-21 に3件の PDF が `UnsupportedDocumentException` で失敗した。
+        # 隔離も通知も正しく動いたのに、そのあと投げ直していたため:
+        #
+        #   - Lambda が自動リトライする。**ファイル形式は次も同じなので必ず失敗する**
+        #   - リトライのたびに隔離コピーと通知メールが増える
+        #   - エラー率が膨らみ、**本当に直せる一時的な失敗が埋もれる**
+        #
+        # この関数は既にこの区別を持っている。「テーブル未検出」は
+        # 隔離して 404 を返し、投げ直していない。**同じ扱いに揃える。**
+        #
+        # ⚠️ **握りつぶすのとは違う。** 失敗は3つの経路で残る:
+        #   1. `review/` に隔離される
+        #   2. SNS でメールが飛ぶ（購読済みを 2026-08-26 に確認）
+        #   3. ログに `[PERMANENT FAILURE]` が出る（メトリクスフィルタで拾える）
+        if _is_permanent_failure(e):
+            print(f"[PERMANENT FAILURE] {key}: {type(e).__name__} — リトライしても直らない")
+            return {
+                'statusCode': 422,
+                'body': f'Permanently unprocessable: {type(e).__name__}',
+                'quarantined': True,
+            }
+
+        # 一時的かもしれない失敗は投げ直す。**Lambda のリトライに意味がある。**
         raise
