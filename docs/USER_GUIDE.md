@@ -59,6 +59,10 @@ to the actual sensor-poll date; they are not backdated to the EventBridge schedu
 
 1. Check the `aggregate` status in the Lambda response or CloudWatch log.
 2. For `master-date-missing`, add or verify the intended Master row, then invoke the original event again.
+   The run logs `Telemetry incomplete` (not `Telemetry success`) because the daily
+   aggregate was **not** written. Grep for `Telemetry incomplete` to find these runs:
+   between 2026-07-12 and 2026-08-26 every one of 55 runs hit this state and nobody
+   noticed, because the line used to start with `Telemetry success`.
 3. For `duplicate-master-date`, resolve the duplicate date before retrying; the Lambda deliberately
    writes nothing while the date key is ambiguous.
 4. For `no-valid-samples`, correct only the malformed telemetry row or upstream sensor response, then
