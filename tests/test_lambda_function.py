@@ -333,6 +333,39 @@ class TestLambdaHandler(unittest.TestCase):
         self.assertFalse(handler._is_permanent_failure(ClientError('ThrottlingException')))
         self.assertFalse(handler._is_permanent_failure(RuntimeError('boom')))
 
+    def test_multipage_rejection_explains_what_to_do(self):
+        """隔離の理由に、**次にできること**が書いてある。
+
+        2026-08-21 に3件の介護記録が隔離されたが、通知に書かれていたのは
+        `処理中のエラー: An error occurred (UnsupportedDocumentException)...`
+        だけだった。**何をすれば取り込めるのかが書いていない。**
+        結果、3件は隔離されたまま残った。
+
+        隔離された3件を数えたら**すべて2ページ**、処理できたものは
+        **すべて1ページ**。Textract の同期 API は1ページしか受け付けない。
+        **1ページずつに分ければ、いまのコードで取り込める。**
+        それを書く。
+        """
+        class UnsupportedDocumentException(Exception):
+            pass
+
+        reason = handler._failure_reason(
+            UnsupportedDocumentException("Request has unsupported document format")
+        )
+        self.assertIn("1ページずつに分けて", reason,
+                      "対処法が書かれていない。受け取った人が動けない")
+        self.assertIn("複数ページ", reason, "原因が書かれていない")
+
+    def test_other_failures_keep_the_plain_reason(self):
+        """それ以外の失敗は、余計な推測を書かない。
+
+        **分かっていないことを、分かったように書かない。**
+        """
+        reason = handler._failure_reason(RuntimeError("something else"))
+        self.assertNotIn("1ページずつ", reason,
+                         "関係ない失敗にページ分割を勧めている")
+        self.assertIn("something else", reason)
+
 
 if __name__ == '__main__':
     unittest.main()
