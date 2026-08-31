@@ -1,0 +1,139 @@
+{
+  "schemaVersion": "medication-promise-export/v1",
+  "exportedAt": "2026-08-31T00:00:00+09:00",
+  "timezone": "Asia/Tokyo",
+  "purpose": "personal_review",
+  "recordCount": 4,
+  "records": [
+    {
+      "schemaVersion": "care-event/v1",
+      "eventId": "mp-b5dd5d518b2e",
+      "eventType": "medication_taken",
+      "source": "medication-promise",
+      "patientId": "self",
+      "careTeamId": "household",
+      "occurredAt": "2026-08-01T08:05:00+09:00",
+      "recordedAt": "2026-08-01T08:05:00+09:00",
+      "localDate": "2026-08-01",
+      "payload": {
+        "timing": "朝",
+        "scheduledTime": "08:00",
+        "actualTime": "08:05",
+        "inputSource": "alexa",
+        "medicationRef": "med-a1"
+      },
+      "missingness": "observed",
+      "provenance": {
+        "source": "medication-promise",
+        "sourceRecordId": "mp-b5dd5d518b2e577f4e632cbc0d7959be",
+        "recordedAt": "2026-08-01T08:05:00+09:00",
+        "exportedAt": "2026-08-31T00:00:00+09:00",
+        "transformVersion": "medication-promise-export/1.0.0"
+      },
+      "consentScope": "personal_review",
+      "exportVersion": "medication-promise-export/v1",
+      "correction": {
+        "status": "original"
+      }
+    },
+    {
+      "schemaVersion": "care-event/v1",
+      "eventId": "mp-ed5a133b7b64",
+      "eventType": "medication_taken",
+      "source": "medication-promise",
+      "patientId": "self",
+      "careTeamId": "household",
+      "occurredAt": "2026-08-01T12:10:00+09:00",
+      "recordedAt": "2026-08-01T12:10:00+09:00",
+      "localDate": "2026-08-01",
+      "payload": {
+        "timing": "昼",
+        "scheduledTime": "12:00",
+        "actualTime": "12:10",
+        "inputSource": "manual",
+        "medicationRef": "med-a1"
+      },
+      "missingness": "observed",
+      "provenance": {
+        "source": "medication-promise",
+        "sourceRecordId": "mp-ed5a133b7b64e2520b8569b715d2ffc2",
+        "recordedAt": "2026-08-01T12:10:00+09:00",
+        "exportedAt": "2026-08-31T00:00:00+09:00",
+        "transformVersion": "medication-promise-export/1.0.0"
+      },
+      "consentScope": "personal_review",
+      "exportVersion": "medication-promise-export/v1",
+      "correction": {
+        "status": "original"
+      }
+    },
+    {
+      "schemaVersion": "care-event/v1",
+      "eventId": "mp-4eeef196db45",
+      "eventType": "medication_taken",
+      "source": "medication-promise",
+      "patientId": "self",
+      "careTeamId": "household",
+      "occurredAt": "2026-08-01T19:02:00+09:00",
+      "recordedAt": "2026-08-01T19:02:00+09:00",
+      "localDate": "2026-08-01",
+      "payload": {
+        "timing": "晩",
+        "scheduledTime": "19:00",
+        "actualTime": "19:02",
+        "inputSource": "alexa",
+        "medicationRef": "med-a1"
+      },
+      "missingness": "observed",
+      "provenance": {
+        "source": "medication-promise",
+        "sourceRecordId": "mp-4eeef196db45b376dc2bfa3815f60d30",
+        "recordedAt": "2026-08-01T19:02:00+09:00",
+        "exportedAt": "2026-08-31T00:00:00+09:00",
+        "transformVersion": "medication-promise-export/1.0.0"
+      },
+      "consentScope": "personal_review",
+      "exportVersion": "medication-promise-export/v1",
+      "correction": {
+        "status": "original"
+      }
+    },
+    {
+      "schemaVersion": "care-event/v1",
+      "eventId": "mp-301bc6f60311",
+      "eventType": "medication_taken",
+      "source": "medication-promise",
+      "patientId": "self",
+      "careTeamId": "household",
+      "occurredAt": "2026-08-02T07:58:00+09:00",
+      "recordedAt": "2026-08-02T07:58:00+09:00",
+      "localDate": "2026-08-02",
+      "payload": {
+        "timing": "朝",
+        "scheduledTime": "08:00",
+        "actualTime": "07:58",
+        "inputSource": "alexa",
+        "medicationRef": "med-a1"
+      },
+      "missingness": "observed",
+      "provenance": {
+        "source": "medication-promise",
+        "sourceRecordId": "mp-301bc6f60311b8b80ecbadf51db8fe3b",
+        "recordedAt": "2026-08-02T07:58:00+09:00",
+        "exportedAt": "2026-08-31T00:00:00+09:00",
+        "transformVersion": "medication-promise-export/1.0.0"
+      },
+      "consentScope": "personal_review",
+      "exportVersion": "medication-promise-export/v1",
+      "correction": {
+        "status": "original"
+      }
+    }
+  ],
+  "dailyConditions": [],
+  "limitations": [
+    "記録されなかった服薬は「飲まなかった」ではない（not_recorded ≠ missed）",
+    "服薬名・リマインダー文面・世帯識別子は含まない",
+    "推測された未服薬は含まない"
+  ]
+}

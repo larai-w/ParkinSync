@@ -26,6 +26,12 @@ __pycache__/
 # Reviewed JP Core derivative artifacts contain synthetic records only.
 !fhir/jpcore/*.json
 !fhir/jpcore/generated/*.json
+# Reviewed care-event PoC fixtures are synthetic; the schema copy is the public contract.
+# 2026-08-31: この負の指定が無く、PR #52 は force-add で通していた。次に fixture を
+# 足した回（MP 連携）は静かに落ち、CI の FileNotFoundError で初めて分かった。
+# **一括 ignore は、例外を書いておかないと次の人が必ず踏む。**
+!poc/gutpacer-parkinsync/data/*.json
+!poc/gutpacer-parkinsync/schema/*.json
 .env
 secret_key.txt
 
