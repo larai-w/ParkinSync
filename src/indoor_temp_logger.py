@@ -119,6 +119,40 @@ def sample_already_logged(rows, event_id, sample_time):
     return False
 
 
+def _summarize(temperatures):
+    """気温のリストから、日次の件数・平均・最低・最高を作る。"""
+    if not temperatures:
+        return None
+
+    return {
+        "count": len(temperatures),
+        "avg": round(sum(temperatures) / len(temperatures), 2),
+        "min": round(min(temperatures), 2),
+        "max": round(max(temperatures), 2),
+    }
+
+
+def group_telemetry_by_date(rows):
+    """TempHistory を**1回だけ**走査して、日付→気温リスト にまとめる。
+
+    **なぜ要るか**（2026-08-31）
+
+    埋め直しは 120 日ぶんループする。日ごとに全行を舐め直すと
+    120×全行になり、実行時間が 3秒→36秒へ伸びて、120秒の上限に
+    ときどき届いていた（`ParkinSync_IndoorTemp_Logger-Errors` が
+    8/25・8/27・8/28・8/31 に発報）。**日数を増やしても走査は1回。**
+    """
+    by_date = {}
+    for row in rows:
+        if len(row) < 2:
+            continue
+        timestamp = _parse_timestamp(row[0])
+        temperature = _temperature(row[1])
+        if timestamp and temperature is not None:
+            by_date.setdefault(timestamp.date(), []).append(temperature)
+    return by_date
+
+
 def aggregate_telemetry_rows(rows, target_date):
     """Calculate daily indoor temperature aggregates from synthetic or sheet rows."""
     target = _parse_date(target_date)
@@ -134,15 +168,7 @@ def aggregate_telemetry_rows(rows, target_date):
         if timestamp and timestamp.date() == target and temperature is not None:
             temperatures.append(temperature)
 
-    if not temperatures:
-        return None
-
-    return {
-        "count": len(temperatures),
-        "avg": round(sum(temperatures) / len(temperatures), 2),
-        "min": round(min(temperatures), 2),
-        "max": round(max(temperatures), 2),
-    }
+    return _summarize(temperatures)
 
 
 def _master_row_numbers(date_rows, target_date, start_row=2):
@@ -156,6 +182,33 @@ def _master_row_numbers(date_rows, target_date, start_row=2):
         for index, row in enumerate(date_rows, start=start_row)
         if row and _parse_date(row[0]) == target
     ]
+
+
+def index_master_dates(date_rows, start_row=2):
+    """B列を**1回だけ**走査して、日付→行番号 の対応を作る。
+
+    **読めなかったセルも数えて返す**（CSI-014）。日次集計は45日間ずっと
+    `master-date-missing` で、残っていた問いが「Master に対象日の行が
+    無いのはなぜか」だった。`_parse_date` が読めるのは `%Y-%m-%d`
+    `%Y/%m/%d` `%m/%d/%Y` `%m/%d/%y` だけで、`2026年8月26日` は読めない。
+    **行が無いのか、読めていないだけなのかは、数えれば分かる** ——
+    シートを開かずに。
+    """
+    by_date = {}
+    unparsed = 0
+    samples = []
+    for row_number, row in enumerate(date_rows, start=start_row):
+        text = str((row[0] if row else "") or "").strip()
+        if not text:
+            continue
+        parsed = _parse_date(text)
+        if parsed is None:
+            unparsed += 1
+            if len(samples) < 3:
+                samples.append(text[:20])
+            continue
+        by_date.setdefault(parsed, []).append(row_number)
+    return {"by_date": by_date, "unparsed": unparsed, "samples": samples}
 
 
 def _format_summary(aggregate):
@@ -210,6 +263,11 @@ def backfill_missing_aggregates(service, spreadsheet_id, telemetry_rows, today,
       3. 埋める行をまとめて `batchUpdate` で1回書く
 
     **空のときだけ書く。** 上書きはしない。
+
+    **API を固定しても、走査までは固定されない**（2026-08-31）。
+    初版は日ごとに全行を舐め直していたので 120×全行になり、実行時間が
+    3秒→36秒へ伸びて 120秒の上限にときどき届いた。**引き当ての表は
+    ループの外で1回だけ**作る。
     """
     days = BACKFILL_DAYS if days is None else days
     values_api = service.spreadsheets().values()
@@ -228,19 +286,29 @@ def backfill_missing_aggregates(service, spreadsheet_id, telemetry_rows, today,
         fields="values",
     ).execute().get("values", [])
 
+    # 引き当てに使う表を**先に1回だけ**作る。
+    master = index_master_dates(date_rows)
+    telemetry_by_date = group_telemetry_by_date(telemetry_rows)
+    diagnostics = {
+        "master_dates": len(master["by_date"]),
+        "unparsed_dates": master["unparsed"],
+        "unparsed_samples": master["samples"],
+    }
+
     updates = []
     filled_dates = []
     for back in range(1, days + 1):
         day = today - datetime.timedelta(days=back)
-        aggregate = aggregate_telemetry_rows(telemetry_rows, day)
-        if aggregate is None:
+        temperatures = telemetry_by_date.get(day)
+        if not temperatures:
             continue                      # その日の計測値が無い
-        matches = _master_row_numbers(date_rows, day)
+        matches = master["by_date"].get(day, ())
         if len(matches) != 1:
             continue                      # 行が無い / 重複している日は触らない
         row_number = matches[0]
         if _has_aggregate(agg_rows, row_number):
             continue                      # 既に入っている。**上書きしない**
+        aggregate = _summarize(temperatures)
         updates.append({
             "range": f"{_sheet_ref(MASTER_SHEET)}!U{row_number}:X{row_number}",
             "values": [[
@@ -251,13 +319,13 @@ def backfill_missing_aggregates(service, spreadsheet_id, telemetry_rows, today,
         filled_dates.append(str(day))
 
     if not updates:
-        return {"filled": 0, "dates": []}
+        return {"filled": 0, "dates": [], **diagnostics}
 
     values_api.batchUpdate(
         spreadsheetId=spreadsheet_id,
         body={"valueInputOption": "RAW", "data": updates},
     ).execute()
-    return {"filled": len(updates), "dates": filled_dates}
+    return {"filled": len(updates), "dates": filled_dates, **diagnostics}
 
 
 def sync_daily_aggregate(service, spreadsheet_id, telemetry_rows, target_date):
@@ -529,6 +597,15 @@ def lambda_handler(event, context):
         )
         if backfill["filled"]:
             print(f"Backfilled aggregates for: {', '.join(backfill['dates'])}")
+        elif not aggregate_done:
+            # **なぜ埋まらなかったのか**を残す（CSI-014 に残っていた問い）。
+            # 行が無いのか、B列の書式が読めていないのかで、次の手が変わる。
+            print(
+                "Backfill filled nothing: "
+                f"master_dates={backfill.get('master_dates', 0)} "
+                f"unparsed_dates={backfill.get('unparsed_dates', 0)} "
+                f"unparsed_samples={backfill.get('unparsed_samples', [])}"
+            )
         return {
             "statusCode": 200,
             "body": json.dumps({
