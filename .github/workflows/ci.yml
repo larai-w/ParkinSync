@@ -144,6 +144,12 @@ jobs:
       - name: GutPacer -> care-event-v1 -> ParkinSync roundtrip (synthetic)
         run: python3 poc/gutpacer-parkinsync/test_roundtrip.py
 
+      # Medication Promise は正本を丸写しせず「服薬だけの狭い版」を持っている。
+      # 消費側から正本で検証し、狭めたつもりが外れていないかを毎回測る。
+      # あわせて 2 source を混ぜた日次行（BEN-001 の統合そのもの）を固定する。
+      - name: Medication Promise -> care-event-v1 -> ParkinSync (synthetic)
+        run: python3 poc/gutpacer-parkinsync/test_medication_roundtrip.py
+
       # BEN-001 §7: 同意撤回時の削除と、その検証(再exportして不在をassert)が
       # 壊れていないことを毎回確かめる。削除はfail-closedなので実行しても何も消えない。
       - name: Withdrawal -> deletion -> verification (synthetic)
