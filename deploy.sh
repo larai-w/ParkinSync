@@ -31,6 +31,22 @@ OCR_LAMBDA_TIMEOUT="${OCR_LAMBDA_TIMEOUT:-${LAMBDA_TIMEOUT:-90}}"
 # **タイムアウトを伸ばしても、普段の課金時間は変わらない**（実行時間で課金される）。
 IOT_LAMBDA_TIMEOUT="${IOT_LAMBDA_TIMEOUT:-${LAMBDA_TIMEOUT:-120}}"
 
+# 2026-08-31: IoT は 128MB のままで、しかも**毎回使い切っていた**
+# （`Max Memory Used: 128 MB / 128 MB`）。Lambda は CPU がメモリに比例するので、
+# 一番遅い状態で 120日ぶんの引き当てを回していたことになる。OCR 側は元から 512MB で、
+# 揃っていなかっただけ。**実行時間が縮めば費用はむしろ下がりうる**（GB-秒で課金される）。
+OCR_LAMBDA_MEMORY="${OCR_LAMBDA_MEMORY:-${LAMBDA_MEMORY:-512}}"
+IOT_LAMBDA_MEMORY="${IOT_LAMBDA_MEMORY:-${LAMBDA_MEMORY:-512}}"
+
+for memory_name in OCR_LAMBDA_MEMORY IOT_LAMBDA_MEMORY; do
+  memory_value="${!memory_name}"
+  if ! [[ "$memory_value" =~ ^[1-9][0-9]{1,4}$ ]] \
+    || [ "$memory_value" -lt 128 ] || [ "$memory_value" -gt 10240 ]; then
+    echo "$memory_name must be an integer between 128 and 10240 MB" >&2
+    exit 2
+  fi
+done
+
 for timeout_name in OCR_LAMBDA_TIMEOUT IOT_LAMBDA_TIMEOUT; do
   timeout_value="${!timeout_name}"
   if ! [[ "$timeout_value" =~ ^[1-9][0-9]{0,2}$ ]] || [ "$timeout_value" -gt 900 ]; then
@@ -76,9 +92,10 @@ deploy_function_code() {
   local function_name="$1"
   local zip_path="$2"
   local timeout="$3"
+  local memory="$4"
 
   if [ "$DRY_RUN" = "1" ]; then
-    echo "DRY_RUN: would set timeout=${timeout}s, publish $function_name and move alias $LAMBDA_ALIAS ($(du -h "$zip_path" | cut -f1), vendor_deps=$VENDOR_DEPS)"
+    echo "DRY_RUN: would set timeout=${timeout}s memory=${memory}MB, publish $function_name and move alias $LAMBDA_ALIAS ($(du -h "$zip_path" | cut -f1), vendor_deps=$VENDOR_DEPS)"
     return
   fi
 
@@ -87,6 +104,7 @@ deploy_function_code() {
     --region "$AWS_REGION" \
     --function-name "$function_name" \
     --timeout "$timeout" \
+    --memory-size "$memory" \
     >/dev/null
   aws lambda wait function-updated \
     --region "$AWS_REGION" \
@@ -146,7 +164,7 @@ if [ "$DEPLOY_TARGET" = "all" ] || [ "$DEPLOY_TARGET" = "ocr" ]; then
   cp "$ROOT_DIR/src/ParkinSync_OCR_Handler.py" "$OCR_BUILD/lambda_function.py"
   build_zip "$OCR_BUILD" "$OCR_ZIP"
 
-  deploy_function_code "ParkinSync_OCR_Handler" "$OCR_ZIP" "$OCR_LAMBDA_TIMEOUT"
+  deploy_function_code "ParkinSync_OCR_Handler" "$OCR_ZIP" "$OCR_LAMBDA_TIMEOUT" "$OCR_LAMBDA_MEMORY"
 fi
 
 if [ "$DEPLOY_TARGET" = "all" ] || [ "$DEPLOY_TARGET" = "iot" ]; then
@@ -157,5 +175,5 @@ if [ "$DEPLOY_TARGET" = "all" ] || [ "$DEPLOY_TARGET" = "iot" ]; then
   cp "$ROOT_DIR/src/indoor_temp_logger.py" "$IOT_BUILD/lambda_function.py"
   build_zip "$IOT_BUILD" "$IOT_ZIP"
 
-  deploy_function_code "ParkinSync_IndoorTemp_Logger" "$IOT_ZIP" "$IOT_LAMBDA_TIMEOUT"
+  deploy_function_code "ParkinSync_IndoorTemp_Logger" "$IOT_ZIP" "$IOT_LAMBDA_TIMEOUT" "$IOT_LAMBDA_MEMORY"
 fi

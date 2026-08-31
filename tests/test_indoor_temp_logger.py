@@ -638,6 +638,64 @@ class TestBackfillMissingAggregates(unittest.TestCase):
         self.assertEqual(result["filled"], 0)
         values_api.batchUpdate.assert_not_called()
 
+    def test_scanning_does_not_grow_with_the_number_of_days(self):
+        """**走査**も日数に比例して増やさない。
+
+        API を2回に固定しても、日ごとに全行を舐め直せば 120×全行になる。
+        2026-08-31 の遅延はこれで、実行時間が 3秒→36秒へ伸び、
+        120秒の上限に4回届いてアラームを鳴らした
+        （8/25・8/27・8/28・8/31）。
+        **足し算を先に確かめる対象は、呼び出し回数だけではない。**
+        """
+        dates = [f"2026-03-{d:02d}" for d in range(1, 29)]
+        telemetry = self._telemetry(*dates)          # 28日 × 2行 = 56行
+        service, _ = self._service(
+            date_rows=[[d] for d in dates],
+            agg_rows=[[] for _ in dates],
+        )
+        with patch("indoor_temp_logger._parse_timestamp",
+                   wraps=logger._parse_timestamp) as scanned:
+            logger.backfill_missing_aggregates(
+                service, "sheet-id", telemetry, self.TODAY, days=120
+            )
+        self.assertEqual(
+            scanned.call_count, len(telemetry),
+            "計測行の走査が1回を超えている。日数ぶん舐め直してはいけない",
+        )
+
+    def test_counts_master_dates_it_could_not_read(self):
+        """**読めなかった日付を数える。**（CSI-014 に残っていた問い）
+
+        45日間ずっと `master-date-missing` だったとき、残った問いは
+        「行が無いのか、書式が読めていないだけなのか」だった。
+        `2026年4月19日` のような書式は `_parse_date` が読めない。
+        **数えていれば、シートを開かずに答えが出る。**
+        """
+        service, values_api = self._service(
+            date_rows=[["2026年4月19日"], ["2026-04-18"]],
+            agg_rows=[[], []],
+        )
+        result = logger.backfill_missing_aggregates(
+            service, "sheet-id", self._telemetry("2026-04-19"), self.TODAY, days=5
+        )
+        self.assertEqual(result["filled"], 0)
+        values_api.batchUpdate.assert_not_called()
+        self.assertEqual(result["unparsed_dates"], 1)
+        self.assertEqual(result["master_dates"], 1, "読めたのは 04-18 の1件だけ")
+        self.assertIn("2026年4月19日", result["unparsed_samples"])
+
+    def test_diagnostics_come_back_even_when_it_filled_something(self):
+        """埋めたときも診断値は返す。**片方の道でだけ見えるのを避ける。**"""
+        service, _ = self._service(
+            date_rows=[["2026-04-19"]], agg_rows=[[]]
+        )
+        result = logger.backfill_missing_aggregates(
+            service, "sheet-id", self._telemetry("2026-04-19"), self.TODAY, days=5
+        )
+        self.assertEqual(result["filled"], 1)
+        self.assertEqual(result["master_dates"], 1)
+        self.assertEqual(result["unparsed_dates"], 0)
+
     @patch("indoor_temp_logger.build")
     @patch("indoor_temp_logger.service_account.Credentials.from_service_account_info")
     @patch("indoor_temp_logger.requests.get")
@@ -750,6 +808,63 @@ class TestBackfillMissingAggregates(unittest.TestCase):
         self.assertEqual(json.loads(result["body"])["backfilled"], 2)
         self.assertIn("backfilled=2", printed, printed)
         self.assertIn("2026-04-18", printed, "埋めた日付をログに残していない")
+
+    @patch("indoor_temp_logger.backfill_missing_aggregates")
+    @patch("indoor_temp_logger.build")
+    @patch("indoor_temp_logger.service_account.Credentials.from_service_account_info")
+    @patch("indoor_temp_logger.requests.get")
+    @patch("indoor_temp_logger.boto3.client")
+    @patch("indoor_temp_logger.current_sample_time")
+    def test_handler_says_why_the_backfill_filled_nothing(
+        self, mock_sample_time, mock_boto, mock_get, mock_credentials,
+        mock_build, mock_backfill
+    ):
+        """埋まらなかったときは**理由**を残す。
+
+        `backfilled=0` だけでは、Master に行が無いのか、B列の書式が
+        読めていないだけなのかが分からない。**次の手が変わるので、
+        数えた結果をログに出す。**（CSI-014）
+        """
+        mock_backfill.return_value = {
+            "filled": 0,
+            "dates": [],
+            "master_dates": 0,
+            "unparsed_dates": 55,
+            "unparsed_samples": ["2026年4月19日"],
+        }
+        mock_sample_time.return_value = datetime.datetime(
+            2026, 4, 20, 9, 0, tzinfo=logger.JST
+        )
+        secrets_client = MagicMock()
+        secrets_client.get_secret_value.return_value = {
+            "SecretString": (
+                '{"SWITCHBOT_TOKEN":"token","SWITCHBOT_SECRET":"secret",'
+                '"SWITCHBOT_DEVICE_ID":"device","GOOGLE_SHEET_ID":"sheet-id"}'
+            )
+        }
+        mock_boto.return_value = secrets_client
+        switchbot_response = MagicMock()
+        switchbot_response.json.return_value = {"body": {"temperature": 20.5}}
+        mock_get.return_value = switchbot_response
+
+        service = MagicMock()
+        values_api = service.spreadsheets.return_value.values.return_value
+        values_api.get.return_value.execute.side_effect = [
+            {"values": []},                 # TempHistory
+            {"values": []},                 # Master に当日の行が無い
+        ]
+        values_api.append.return_value.execute.return_value = {}
+        mock_build.return_value = service
+        mock_credentials.return_value = MagicMock()
+
+        captured = io.StringIO()
+        with contextlib.redirect_stdout(captured):
+            logger.lambda_handler({"id": "event-123"}, None)
+        printed = captured.getvalue()
+
+        self.assertIn("aggregate=master-date-missing", printed, printed)
+        self.assertIn("Backfill filled nothing", printed, printed)
+        self.assertIn("unparsed_dates=55", printed, printed)
 
     def test_successful_call_logs_its_duration(self):
         """成功した呼び出しの所要時間を残す。
