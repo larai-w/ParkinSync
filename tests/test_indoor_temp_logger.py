@@ -684,6 +684,39 @@ class TestBackfillMissingAggregates(unittest.TestCase):
         self.assertEqual(result["master_dates"], 1, "読めたのは 04-18 の1件だけ")
         self.assertIn("2026年4月19日", result["unparsed_samples"])
 
+    def test_reports_coverage_of_days_that_have_telemetry(self):
+        """**健全性は「読めない行の数」ではなく「集計が欠けている日の数」で見る。**
+
+        2026-09-02 の教訓（CSI-014）。日付でない行が日付欄に混ざっていると
+        `unparsed_dates` は減らないが、**集計は欠けていない**。
+        読めない行を数えても、直すべきものがあるかは分からない。
+        """
+        service, _ = self._service(
+            date_rows=[["", "2026-04-19"], ["", "2026-04-18"]],
+            agg_rows=[["Avg:1", 1, 1, 1], []],
+        )
+        result = logger.backfill_missing_aggregates(
+            service, "sheet-id",
+            self._telemetry("2026-04-19") + self._telemetry("2026-04-18"),
+            self.TODAY, days=5,
+        )
+        cov = result["coverage"]
+        self.assertEqual(cov["with_telemetry"], 2, cov)
+        self.assertEqual(cov["row_found"], 2, cov)
+        self.assertEqual(cov["already_filled"], 1, "04-19 は既に入っている")
+        self.assertEqual(result["filled"], 1, "04-18 だけ埋める")
+
+    def test_coverage_counts_days_whose_row_is_missing(self):
+        """行が無い日は「行が無い」として数える。**未測定と混ぜない。**"""
+        service, _ = self._service(date_rows=[["", "2026-04-18"]], agg_rows=[[]])
+        result = logger.backfill_missing_aggregates(
+            service, "sheet-id", self._telemetry("2026-04-19"), self.TODAY, days=5
+        )
+        cov = result["coverage"]
+        self.assertEqual(cov["with_telemetry"], 1)
+        self.assertEqual(cov["row_missing"], 1, cov)
+        self.assertEqual(cov["row_found"], 0)
+
     def test_fills_a_month_name_row_using_the_year_column(self):
         """`April 20` を A列の年と合わせて読む。（CSI-014）
 

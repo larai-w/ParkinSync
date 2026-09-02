@@ -482,16 +482,29 @@ def backfill_missing_aggregates(service, spreadsheet_id, telemetry_rows, today,
 
     updates = []
     filled_dates = []
+    # **本当の健全性はここで数える。**（CSI-014・2026-09-02）
+    # 「読めない行が何行あるか」は健全性ではない。日付でない行が混ざっていれば
+    # 減らないし、減らなくても集計は埋まっている。**知りたいのは
+    # 「計測値があるのに集計が書かれていない日が何日あるか」**。
+    coverage = {"with_telemetry": 0, "row_found": 0, "already_filled": 0,
+                "row_missing": 0, "row_duplicated": 0}
+
     for back in range(1, days + 1):
         day = today - datetime.timedelta(days=back)
         temperatures = telemetry_by_date.get(day)
         if not temperatures:
             continue                      # その日の計測値が無い
+        coverage["with_telemetry"] += 1
         matches = master["by_date"].get(day, ())
         if len(matches) != 1:
-            continue                      # 行が無い / 重複している日は触らない
+            # 行が無い / 重複している日は触らない
+            key = "row_duplicated" if len(matches) > 1 else "row_missing"
+            coverage[key] += 1
+            continue
+        coverage["row_found"] += 1
         row_number = matches[0]
         if _has_aggregate(agg_rows, row_number):
+            coverage["already_filled"] += 1
             continue                      # 既に入っている。**上書きしない**
         aggregate = _summarize(temperatures)
         updates.append({
@@ -504,13 +517,16 @@ def backfill_missing_aggregates(service, spreadsheet_id, telemetry_rows, today,
         filled_dates.append(str(day))
 
     if not updates:
-        return {"filled": 0, "dates": [], **diagnostics}
+        # ⚠️ **早い戻り道にも同じものを載せる。** 片方だけに診断値を載せると、
+        # 「何も埋めなかったとき」＝いちばん知りたいときに限って見えなくなる。
+        return {"filled": 0, "dates": [], "coverage": coverage, **diagnostics}
 
     values_api.batchUpdate(
         spreadsheetId=spreadsheet_id,
         body={"valueInputOption": "RAW", "data": updates},
     ).execute()
-    return {"filled": len(updates), "dates": filled_dates, **diagnostics}
+    return {"filled": len(updates), "dates": filled_dates,
+            "coverage": coverage, **diagnostics}
 
 
 def sync_daily_aggregate(service, spreadsheet_id, telemetry_rows, target_date):
@@ -789,7 +805,7 @@ def lambda_handler(event, context):
                 "Backfill filled nothing: "
                 f"master_dates={backfill.get('master_dates', 0)} "
                 f"unparsed_dates={backfill.get('unparsed_dates', 0)} "
-                f"unparsed_samples={backfill.get('unparsed_samples', [])}"
+                f"coverage={json.dumps(backfill.get('coverage', {}), ensure_ascii=False)}"
             )
             # 読めない行があるなら、**年がどこかに書いてあるか**まで見る。
             # `April 20` には年が無く、推測して埋めると別の年の行を壊す。
