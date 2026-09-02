@@ -327,6 +327,7 @@ def diagnose_year_source(rows, date_col=_DATE_COL, start_row=2):
     「2000 と 2030 も見えている」ように出る。**どの列を読めばよいかが決められない。**
       unparsed_row_span  読めない行の最初と最後の行番号
       unparsed_shapes    読めない値の**形**ごとの件数（多い順・上位8件）
+      unparsed_charset   読めない値に出てくる数字以外の文字（重複なし・最大20）
     """
     columns = "ABCDEF"
     unparsed_rows = 0
@@ -334,6 +335,7 @@ def diagnose_year_source(rows, date_col=_DATE_COL, start_row=2):
     year_in_column = {}
     years_by_column = {}
     shapes = {}
+    charset = set()
     first_row = last_row = None
 
     for offset, row in enumerate(rows):
@@ -352,6 +354,10 @@ def diagnose_year_source(rows, date_col=_DATE_COL, start_row=2):
         unparsed_rows += 1
         shape = _shape_of(text)
         shapes[shape] = shapes.get(shape, 0) + 1
+        # 形だけでは区切り文字が特定できなかった（2026-09-02）。
+        # **日付欄に出てくる数字以外の文字**を集める。区切り記号や月名の一部で、
+        # ケアの記述ではない。パーサを書くにはこれが要る。
+        charset.update(ch for ch in text[:24] if not ch.isdigit() and not ch.isspace())
         first_row = row_number if first_row is None else first_row
         last_row = row_number
         for index, value in enumerate(row):
@@ -371,6 +377,7 @@ def diagnose_year_source(rows, date_col=_DATE_COL, start_row=2):
         "years_by_column": {k: sorted(v) for k, v in sorted(years_by_column.items())},
         "unparsed_row_span": [first_row, last_row] if first_row is not None else [],
         "unparsed_shapes": dict(sorted(shapes.items(), key=lambda kv: -kv[1])[:8]),
+        "unparsed_charset": sorted(charset)[:20],
     }
 
 
