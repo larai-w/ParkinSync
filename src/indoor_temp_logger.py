@@ -327,7 +327,8 @@ def diagnose_year_source(rows, date_col=_DATE_COL, start_row=2):
     「2000 と 2030 も見えている」ように出る。**どの列を読めばよいかが決められない。**
       unparsed_row_span  読めない行の最初と最後の行番号
       unparsed_shapes    読めない値の**形**ごとの件数（多い順・上位8件）
-      unparsed_charset   読めない値に出てくる数字以外の文字（重複なし・最大20）
+      unparsed_charset   読めない値に出てくる数字以外の文字（重複なし・最大40）
+      unparsed_charset_size  その文字の総数（上の一覧が切れているかが分かる）
     """
     columns = "ABCDEF"
     unparsed_rows = 0
@@ -377,7 +378,10 @@ def diagnose_year_source(rows, date_col=_DATE_COL, start_row=2):
         "years_by_column": {k: sorted(v) for k, v in sorted(years_by_column.items())},
         "unparsed_row_span": [first_row, last_row] if first_row is not None else [],
         "unparsed_shapes": dict(sorted(shapes.items(), key=lambda kv: -kv[1])[:8]),
-        "unparsed_charset": sorted(charset)[:20],
+        # 上限で切れていることが分からないと、「A〜P しか無い」と誤読する。
+        # **切り詰めた一覧を出すときは、必ず総数も出す。**
+        "unparsed_charset": sorted(charset)[:40],
+        "unparsed_charset_size": len(charset),
     }
 
 
