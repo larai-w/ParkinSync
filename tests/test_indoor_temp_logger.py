@@ -744,9 +744,11 @@ class TestBackfillMissingAggregates(unittest.TestCase):
         `April 20` には年が無い。**推測して埋めると別の年の行に書き込む**ので、
         まず「年がどこかに書いてあるか」を確かめる。
         """
+        # 年を渡しても読めない形（`420`）を使う。`April 20` は年があれば
+        # 読めるようになったので、年の出どころを見る題材にはもう使えない。
         rows = [
-            ["2026", "April 20", "散歩した", "", "", ""],
-            ["2026", "April 21", "デイサービス", "", "", ""],
+            ["2026", "420", "散歩した", "", "", ""],
+            ["2026", "422", "デイサービス", "", "", ""],
             ["", "2026-04-22", "通院", "", "", ""],
         ]
         result = logger.diagnose_year_source(rows)
@@ -766,6 +768,30 @@ class TestBackfillMissingAggregates(unittest.TestCase):
         self.assertEqual(result["unparsed_rows"], 2)
         self.assertEqual(result["year_in_column"], {})
         self.assertEqual(result["years_by_column"], {})
+
+    def test_year_source_diagnosis_counts_shapes_not_samples(self):
+        """読めない値の**形**を分布で数える。（CSI-014）
+
+        2026-09-02、`unparsed_samples` の3件（`April 20`）だけを見て
+        「143行すべて同じ形」と判断し、外した。実際にそう書かれていたのは
+        5行だけで、残りは別の形だった。**サンプルではなく分布を見る。**
+        """
+        rows = [
+            ["2026", "April 20", "", "", "", ""],
+            ["2026", "420", "", "", "", ""],
+            ["2026", "422", "", "", "", ""],
+            ["2026", "4/21", "", "", "", ""],
+        ]
+        result = logger.diagnose_year_source(rows)
+        # April 20 は年があるので読める。残り3件が読めない
+        self.assertEqual(result["unparsed_rows"], 3, result)
+        self.assertEqual(result["unparsed_shapes"], {"999": 2, "9/99": 1}, result)
+
+    def test_shape_hides_the_characters(self):
+        """形は中身を隠す。数字→9・英字→A・非ASCII→#。"""
+        self.assertEqual(logger._shape_of("April 20"), "AAAAA 99")
+        self.assertEqual(logger._shape_of("4月21日"), "9#99#")
+        self.assertEqual(logger._shape_of("2026-04-20"), "9999-99-99")
 
     def test_year_source_diagnosis_never_returns_cell_contents(self):
         """⚠️ **診断のためにケア情報を持ち出さない。**

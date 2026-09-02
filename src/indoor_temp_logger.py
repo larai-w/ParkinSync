@@ -287,6 +287,28 @@ _YEAR_SCAN_RANGE = "A2:F"
 _DATE_COL = 1  # A2:F の中で B 列の位置
 
 
+def _shape_of(text):
+    """値の**形**だけを返す。数字→9・英字→A・その他の文字→#。
+
+    ⚠️ **中身は返さない。** 形が分かればパーサは書ける。
+    2026-09-02 に `unparsed_samples` の3件（`April 20`）だけを見て
+    「143行すべてが同じ形」と判断し、外した。**分布を数えないと分からない。**
+    """
+    out = []
+    for ch in text[:24]:
+        if ch.isdigit():
+            out.append("9")
+        elif ch.isascii() and ch.isalpha():
+            out.append("A")
+        elif ch.isspace():
+            out.append(" ")
+        elif ch.isascii():
+            out.append(ch)
+        else:
+            out.append("#")
+    return "".join(out)
+
+
 def diagnose_year_source(rows, date_col=_DATE_COL, start_row=2):
     """読めない日付行の「年」が、隣の列から取れそうかを数える。
 
@@ -304,12 +326,14 @@ def diagnose_year_source(rows, date_col=_DATE_COL, start_row=2):
     （2026-09-02 の実測では C列に8件・F列に1件）が、日付列の年と混ざって
     「2000 と 2030 も見えている」ように出る。**どの列を読めばよいかが決められない。**
       unparsed_row_span  読めない行の最初と最後の行番号
+      unparsed_shapes    読めない値の**形**ごとの件数（多い順・上位8件）
     """
     columns = "ABCDEF"
     unparsed_rows = 0
     parsed_years = {}
     year_in_column = {}
     years_by_column = {}
+    shapes = {}
     first_row = last_row = None
 
     for offset, row in enumerate(rows):
@@ -317,12 +341,17 @@ def diagnose_year_source(rows, date_col=_DATE_COL, start_row=2):
         text = str((row[date_col] if len(row) > date_col else "") or "").strip()
         if not text:
             continue
-        parsed = _parse_date(text)
+        # **backfill と同じ条件で数える**（A列の年を渡す）。揃えないと
+        # 「診断では143・本処理では138」のように食い違い、どちらが本当か分からない。
+        year_here = _year_from_cell(row[0] if row else "")
+        parsed = _parse_date(text, year=year_here)
         if parsed is not None:
             parsed_years[parsed.year] = parsed_years.get(parsed.year, 0) + 1
             continue
 
         unparsed_rows += 1
+        shape = _shape_of(text)
+        shapes[shape] = shapes.get(shape, 0) + 1
         first_row = row_number if first_row is None else first_row
         last_row = row_number
         for index, value in enumerate(row):
@@ -341,6 +370,7 @@ def diagnose_year_source(rows, date_col=_DATE_COL, start_row=2):
         "year_in_column": dict(sorted(year_in_column.items())),
         "years_by_column": {k: sorted(v) for k, v in sorted(years_by_column.items())},
         "unparsed_row_span": [first_row, last_row] if first_row is not None else [],
+        "unparsed_shapes": dict(sorted(shapes.items(), key=lambda kv: -kv[1])[:8]),
     }
 
 
