@@ -5,6 +5,7 @@ import hmac
 import json
 import math
 import os
+import re
 import time
 import uuid
 
@@ -209,6 +210,84 @@ def index_master_dates(date_rows, start_row=2):
             continue
         by_date.setdefault(parsed, []).append(row_number)
     return {"by_date": by_date, "unparsed": unparsed, "samples": samples}
+
+
+# `April 20` のような**年の無い**日付から、年をどこで引けばよいかを探すための診断。
+#
+# なぜ要るか（CSI-014・2026-09-02）: B列の143行が `April 20` 形式で、
+# `_parse_date` が読めない。年を推測して埋めると**別の年の行に集計を書き込む**ので、
+# 空欄のまま残すより悪い。**まず「年がどこかに書いてあるか」を確かめる。**
+#
+# ⚠️ これは**一時的な診断**。年の決め方が決まったら消す。
+_YEAR_RE = re.compile(r"(?<!\d)(?:19|20)\d{2}(?!\d)")
+
+# 走査する列（A..F）。B は日付そのものなので候補から外す。
+_YEAR_SCAN_RANGE = "A2:F"
+_DATE_COL = 1  # A2:F の中で B 列の位置
+
+
+def diagnose_year_source(rows, date_col=_DATE_COL, start_row=2):
+    """読めない日付行の「年」が、隣の列から取れそうかを数える。
+
+    ⚠️ **セルの値そのものは返さない。** この行には介護記録が並んでいる。
+    判定に要るのは「年らしき4桁があるか」と「それが何年か」だけで、
+    中身は要らない。**診断のためにケア情報をログへ出さない。**
+
+    返すもの:
+      unparsed_rows      読めなかった行数
+      parsed_years       読めた日付の年ごとの件数（年は個人情報ではない）
+      year_in_column     列名 -> その列に年らしき値があった「読めない行」の数
+      years_seen         隣の列に見つかった年の一覧（昇順）
+      unparsed_row_span  読めない行の最初と最後の行番号
+    """
+    columns = "ABCDEF"
+    unparsed_rows = 0
+    parsed_years = {}
+    year_in_column = {}
+    years_seen = set()
+    first_row = last_row = None
+
+    for offset, row in enumerate(rows):
+        row_number = start_row + offset
+        text = str((row[date_col] if len(row) > date_col else "") or "").strip()
+        if not text:
+            continue
+        parsed = _parse_date(text)
+        if parsed is not None:
+            parsed_years[parsed.year] = parsed_years.get(parsed.year, 0) + 1
+            continue
+
+        unparsed_rows += 1
+        first_row = row_number if first_row is None else first_row
+        last_row = row_number
+        for index, value in enumerate(row):
+            if index == date_col or index >= len(columns):
+                continue
+            match = _YEAR_RE.search(str(value or ""))
+            if not match:
+                continue
+            name = columns[index]
+            year_in_column[name] = year_in_column.get(name, 0) + 1
+            years_seen.add(int(match.group()))
+
+    return {
+        "unparsed_rows": unparsed_rows,
+        "parsed_years": dict(sorted(parsed_years.items())),
+        "year_in_column": dict(sorted(year_in_column.items())),
+        "years_seen": sorted(years_seen),
+        "unparsed_row_span": [first_row, last_row] if first_row is not None else [],
+    }
+
+
+def fetch_year_source_diagnosis(service, spreadsheet_id):
+    """A..F を1回読んで診断する。**本業とは別に、失敗しても止めない。**"""
+    rows = service.spreadsheets().values().get(
+        spreadsheetId=spreadsheet_id,
+        range=f"{_sheet_ref(MASTER_SHEET)}!{_YEAR_SCAN_RANGE}",
+        valueRenderOption="FORMATTED_VALUE",
+        fields="values",
+    ).execute().get("values", [])
+    return diagnose_year_source(rows)
 
 
 def _format_summary(aggregate):
@@ -606,6 +685,15 @@ def lambda_handler(event, context):
                 f"unparsed_dates={backfill.get('unparsed_dates', 0)} "
                 f"unparsed_samples={backfill.get('unparsed_samples', [])}"
             )
+            # 読めない行があるなら、**年がどこかに書いてあるか**まで見る。
+            # `April 20` には年が無く、推測して埋めると別の年の行を壊す。
+            # ⚠️ 一時的な診断。年の決め方が決まったら消す（CSI-014）。
+            if backfill.get("unparsed_dates", 0) > 0:
+                try:
+                    diag = fetch_year_source_diagnosis(service, spreadsheet_id)
+                    print(f"Year source diagnosis: {json.dumps(diag, ensure_ascii=False)}")
+                except Exception as exc:      # noqa: BLE001 - 診断は本業を止めない
+                    print(f"Year source diagnosis skipped: {exc}")
         return {
             "statusCode": 200,
             "body": json.dumps({

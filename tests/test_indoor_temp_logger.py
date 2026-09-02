@@ -684,6 +684,52 @@ class TestBackfillMissingAggregates(unittest.TestCase):
         self.assertEqual(result["master_dates"], 1, "読めたのは 04-18 の1件だけ")
         self.assertIn("2026年4月19日", result["unparsed_samples"])
 
+    def test_year_source_diagnosis_finds_the_year_column(self):
+        """読めない日付の年が、隣の列から取れるかを数える。（CSI-014）
+
+        `April 20` には年が無い。**推測して埋めると別の年の行に書き込む**ので、
+        まず「年がどこかに書いてあるか」を確かめる。
+        """
+        rows = [
+            ["2026", "April 20", "散歩した", "", "", ""],
+            ["2026", "April 21", "デイサービス", "", "", ""],
+            ["", "2026-04-22", "通院", "", "", ""],
+        ]
+        result = logger.diagnose_year_source(rows)
+        self.assertEqual(result["unparsed_rows"], 2)
+        self.assertEqual(result["year_in_column"], {"A": 2}, result)
+        self.assertEqual(result["years_seen"], [2026])
+        self.assertEqual(result["parsed_years"], {2026: 1})
+        self.assertEqual(result["unparsed_row_span"], [2, 3])
+
+    def test_year_source_diagnosis_says_nothing_when_there_is_no_year(self):
+        """どの列にも年が無ければ、そう出る。**無いことを見つけるのも答え。**"""
+        rows = [
+            ["朝", "April 20", "散歩した", "", "", ""],
+            ["昼", "April 21", "デイサービス", "", "", ""],
+        ]
+        result = logger.diagnose_year_source(rows)
+        self.assertEqual(result["unparsed_rows"], 2)
+        self.assertEqual(result["year_in_column"], {})
+        self.assertEqual(result["years_seen"], [])
+
+    def test_year_source_diagnosis_never_returns_cell_contents(self):
+        """⚠️ **診断のためにケア情報を持ち出さない。**
+
+        この行には介護記録が並んでいる。判定に要るのは
+        「年らしき4桁があるか」と「それが何年か」だけ。
+        戻り値は CloudWatch に出るので、**中身が混ざったら漏えいになる。**
+        """
+        secret = "本人が転倒しかけた"
+        rows = [
+            ["2026", "April 20", secret, "服薬あり", "", ""],
+            ["2026", "April 21", "入浴介助", "", "", ""],
+        ]
+        result = logger.diagnose_year_source(rows)
+        blob = json.dumps(result, ensure_ascii=False)
+        for leaked in (secret, "服薬あり", "入浴介助", "April 20"):
+            self.assertNotIn(leaked, blob, f"診断の戻り値にセルの中身が入っている: {leaked}")
+
     def test_diagnostics_come_back_even_when_it_filled_something(self):
         """埋めたときも診断値は返す。**片方の道でだけ見えるのを避ける。**"""
         service, _ = self._service(
