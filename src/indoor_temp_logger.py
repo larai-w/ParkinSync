@@ -237,14 +237,18 @@ def diagnose_year_source(rows, date_col=_DATE_COL, start_row=2):
       unparsed_rows      読めなかった行数
       parsed_years       読めた日付の年ごとの件数（年は個人情報ではない）
       year_in_column     列名 -> その列に年らしき値があった「読めない行」の数
-      years_seen         隣の列に見つかった年の一覧（昇順）
+      years_by_column    列名 -> その列に見つかった年の一覧（昇順）
+
+    ⚠️ 年は**列ごとに分ける**。まとめると、介護記録の中のたまたま4桁の数字
+    （2026-09-02 の実測では C列に8件・F列に1件）が、日付列の年と混ざって
+    「2000 と 2030 も見えている」ように出る。**どの列を読めばよいかが決められない。**
       unparsed_row_span  読めない行の最初と最後の行番号
     """
     columns = "ABCDEF"
     unparsed_rows = 0
     parsed_years = {}
     year_in_column = {}
-    years_seen = set()
+    years_by_column = {}
     first_row = last_row = None
 
     for offset, row in enumerate(rows):
@@ -268,13 +272,13 @@ def diagnose_year_source(rows, date_col=_DATE_COL, start_row=2):
                 continue
             name = columns[index]
             year_in_column[name] = year_in_column.get(name, 0) + 1
-            years_seen.add(int(match.group()))
+            years_by_column.setdefault(name, set()).add(int(match.group()))
 
     return {
         "unparsed_rows": unparsed_rows,
         "parsed_years": dict(sorted(parsed_years.items())),
         "year_in_column": dict(sorted(year_in_column.items())),
-        "years_seen": sorted(years_seen),
+        "years_by_column": {k: sorted(v) for k, v in sorted(years_by_column.items())},
         "unparsed_row_span": [first_row, last_row] if first_row is not None else [],
     }
 

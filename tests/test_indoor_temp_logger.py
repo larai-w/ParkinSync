@@ -698,7 +698,7 @@ class TestBackfillMissingAggregates(unittest.TestCase):
         result = logger.diagnose_year_source(rows)
         self.assertEqual(result["unparsed_rows"], 2)
         self.assertEqual(result["year_in_column"], {"A": 2}, result)
-        self.assertEqual(result["years_seen"], [2026])
+        self.assertEqual(result["years_by_column"], {"A": [2026]})
         self.assertEqual(result["parsed_years"], {2026: 1})
         self.assertEqual(result["unparsed_row_span"], [2, 3])
 
@@ -711,7 +711,7 @@ class TestBackfillMissingAggregates(unittest.TestCase):
         result = logger.diagnose_year_source(rows)
         self.assertEqual(result["unparsed_rows"], 2)
         self.assertEqual(result["year_in_column"], {})
-        self.assertEqual(result["years_seen"], [])
+        self.assertEqual(result["years_by_column"], {})
 
     def test_year_source_diagnosis_never_returns_cell_contents(self):
         """⚠️ **診断のためにケア情報を持ち出さない。**
