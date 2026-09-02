@@ -63,8 +63,12 @@ def _parse_timestamp(value):
     return parsed.astimezone(JST)
 
 
-def _parse_date(value):
-    """Parse a Master Sheet date without relying on the spreadsheet locale."""
+def _parse_date(value, year=None):
+    """Parse a Master Sheet date without relying on the spreadsheet locale.
+
+    `year` を渡すと、年の無い `April 20` 形式も読む（CSI-014）。
+    **渡さなければ読まない。**
+    """
     if isinstance(value, datetime.datetime):
         return value.date()
     if isinstance(value, datetime.date):
@@ -79,7 +83,58 @@ def _parse_date(value):
             return datetime.datetime.strptime(text, fmt).date()
         except ValueError:
             continue
+
+    # 年の無い `April 20` 形式は、**年を渡されたときだけ**読む（CSI-014）。
+    # 2026-09-02 の実測で B列の143行がこの形だった。A列に年があることは
+    # 診断で確かめてある（`year_in_column={"A":143}` / `years_by_column={"A":[2026]}`）。
+    # **年が無ければ読まない。** 推測して埋めると別の年の行に集計を書き込み、
+    # 空欄で残すより悪くなる。
+    if year is not None:
+        parsed = _parse_month_day(text)
+        if parsed is not None:
+            month, day = parsed
+            try:
+                return datetime.date(year, month, day)
+            except ValueError:
+                return None
     return None
+
+
+# 月名は**表で持つ**。`strptime("%B")` はロケール依存で、Lambda と手元で
+# 挙動が変わりうる。この関数の元の docstring も
+# 「スプレッドシートのロケールに依存しない」ことを目的に書かれている。
+_MONTHS = {
+    name: number
+    for number, names in enumerate(
+        (
+            ("january", "jan"), ("february", "feb"), ("march", "mar"),
+            ("april", "apr"), ("may",), ("june", "jun"),
+            ("july", "jul"), ("august", "aug"), ("september", "sep", "sept"),
+            ("october", "oct"), ("november", "nov"), ("december", "dec"),
+        ),
+        start=1,
+    )
+    for name in names
+}
+
+_MONTH_DAY_RE = re.compile(r"^([A-Za-z]+)\.?\s+(\d{1,2})$")
+
+
+def _parse_month_day(text):
+    """`April 20` `Apr. 5` から (月, 日) を取り出す。読めなければ None。"""
+    match = _MONTH_DAY_RE.match(text.strip())
+    if not match:
+        return None
+    month = _MONTHS.get(match.group(1).lower())
+    if month is None:
+        return None
+    return month, int(match.group(2))
+
+
+def _year_from_cell(value):
+    """A列の値から年を取り出す。4桁の年に見えなければ None（＝推測しない）。"""
+    match = _YEAR_RE.search(str(value or ""))
+    return int(match.group()) if match else None
 
 
 def _temperature(value):
@@ -173,7 +228,11 @@ def aggregate_telemetry_rows(rows, target_date):
 
 
 def _master_row_numbers(date_rows, target_date, start_row=2):
-    """Find all Master Sheet row numbers matching the requested date."""
+    """Find all Master Sheet row numbers matching the requested date.
+
+    `date_rows` は **A:B**（A=年・B=日付）。年の無い `April 20` 形式のために
+    A列を渡す（CSI-014）。
+    """
     target = _parse_date(target_date)
     if target is None:
         raise ValueError("target_date must be a supported calendar date")
@@ -181,12 +240,13 @@ def _master_row_numbers(date_rows, target_date, start_row=2):
     return [
         index
         for index, row in enumerate(date_rows, start=start_row)
-        if row and _parse_date(row[0]) == target
+        if len(row) > 1
+        and _parse_date(row[1], year=_year_from_cell(row[0])) == target
     ]
 
 
 def index_master_dates(date_rows, start_row=2):
-    """B列を**1回だけ**走査して、日付→行番号 の対応を作る。
+    """A:B を**1回だけ**走査して、日付→行番号 の対応を作る（A=年・B=日付）。
 
     **読めなかったセルも数えて返す**（CSI-014）。日次集計は45日間ずっと
     `master-date-missing` で、残っていた問いが「Master に対象日の行が
@@ -199,10 +259,11 @@ def index_master_dates(date_rows, start_row=2):
     unparsed = 0
     samples = []
     for row_number, row in enumerate(date_rows, start=start_row):
-        text = str((row[0] if row else "") or "").strip()
+        text = str((row[1] if len(row) > 1 else "") or "").strip()
         if not text:
             continue
-        parsed = _parse_date(text)
+        # A列の年を渡す。**年が取れなければ渡さない**＝ `April 20` は読まない。
+        parsed = _parse_date(text, year=_year_from_cell(row[0] if row else ""))
         if parsed is None:
             unparsed += 1
             if len(samples) < 3:
@@ -357,7 +418,7 @@ def backfill_missing_aggregates(service, spreadsheet_id, telemetry_rows, today,
 
     date_rows = values_api.get(
         spreadsheetId=spreadsheet_id,
-        range=f"{_sheet_ref(MASTER_SHEET)}!B2:B",
+        range=f"{_sheet_ref(MASTER_SHEET)}!A2:B",
         valueRenderOption="FORMATTED_VALUE",
         fields="values",
     ).execute().get("values", [])
@@ -420,7 +481,7 @@ def sync_daily_aggregate(service, spreadsheet_id, telemetry_rows, target_date):
     values_api = service.spreadsheets().values()
     date_response = values_api.get(
         spreadsheetId=spreadsheet_id,
-        range=f"{_sheet_ref(MASTER_SHEET)}!B2:B",
+        range=f"{_sheet_ref(MASTER_SHEET)}!A2:B",
         valueRenderOption="FORMATTED_VALUE",
         fields="values",
     ).execute()

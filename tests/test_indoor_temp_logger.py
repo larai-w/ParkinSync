@@ -58,7 +58,7 @@ class TestMasterSynchronization(unittest.TestCase):
         return service, values_api
 
     def test_updates_only_switchbot_columns_for_one_matching_date(self):
-        service, values_api = self._service([["2026/04/19"], ["2026/04/20"]])
+        service, values_api = self._service([["", "2026/04/19"], ["", "2026/04/20"]])
         telemetry = [
             ["2026-04-20 00:00", 20.0],
             ["2026-04-20 03:00", 22.0],
@@ -78,7 +78,7 @@ class TestMasterSynchronization(unittest.TestCase):
         )
 
     def test_missing_master_date_does_not_write(self):
-        service, values_api = self._service([["2026/04/19"]])
+        service, values_api = self._service([["", "2026/04/19"]])
         telemetry = [["2026-04-20 00:00", 20.0]]
 
         result = logger.sync_daily_aggregate(
@@ -89,7 +89,7 @@ class TestMasterSynchronization(unittest.TestCase):
         values_api.update.assert_not_called()
 
     def test_duplicate_master_date_does_not_write(self):
-        service, values_api = self._service([["2026-04-20"], ["2026/04/20"]])
+        service, values_api = self._service([["", "2026-04-20"], ["", "2026/04/20"]])
         telemetry = [["2026-04-20 00:00", 20.0]]
 
         result = logger.sync_daily_aggregate(
@@ -137,7 +137,7 @@ class TestTelemetryHandler(unittest.TestCase):
         values_api = service.spreadsheets.return_value.values.return_value
         values_api.get.return_value.execute.side_effect = [
             {"values": []},
-            {"values": [["2026-04-20"]]},
+            {"values": [["", "2026-04-20"]]},
         ]
         values_api.append.return_value.execute.return_value = {}
         values_api.update.return_value.execute.return_value = {}
@@ -203,7 +203,7 @@ class TestTelemetryHandler(unittest.TestCase):
         values_api = service.spreadsheets.return_value.values.return_value
         values_api.get.return_value.execute.side_effect = [
             {"values": [["2026-04-20 09:00", 20.5, "event-123"]]},
-            {"values": [["2026-04-20"]]},
+            {"values": [["", "2026-04-20"]]},
         ]
         values_api.update.return_value.execute.return_value = {}
         mock_build.return_value = service
@@ -258,7 +258,7 @@ class TestTelemetryHandler(unittest.TestCase):
         # 2本目の get が Master シートの日付列。**対象日の行が無い。**
         values_api.get.return_value.execute.side_effect = [
             {"values": []},
-            {"values": [["2026-04-19"]]},
+            {"values": [["", "2026-04-19"]]},
         ]
         values_api.append.return_value.execute.return_value = {}
         mock_build.return_value = service
@@ -314,7 +314,7 @@ class TestTelemetryHandler(unittest.TestCase):
         values_api = service.spreadsheets.return_value.values.return_value
         values_api.get.return_value.execute.side_effect = [
             {"values": []},
-            {"values": [["2026-04-20"]]},
+            {"values": [["", "2026-04-20"]]},
         ]
         values_api.append.return_value.execute.return_value = {}
         values_api.update.return_value.execute.return_value = {}
@@ -536,7 +536,7 @@ class TestBackfillMissingAggregates(unittest.TestCase):
     def test_fills_a_day_whose_row_appeared_later(self):
         """行ができた過去の日を埋める。**これができないと永久に空のまま。**"""
         service, values_api = self._service(
-            date_rows=[["2026-04-18"], ["2026-04-19"]],
+            date_rows=[["", "2026-04-18"], ["", "2026-04-19"]],
             agg_rows=[[], []],                      # U:X は空
         )
         result = logger.backfill_missing_aggregates(
@@ -558,7 +558,7 @@ class TestBackfillMissingAggregates(unittest.TestCase):
         **手で直した内容を壊さない。** 埋め直しは「空を埋める」だけ。
         """
         service, values_api = self._service(
-            date_rows=[["2026-04-19"]],
+            date_rows=[["", "2026-04-19"]],
             agg_rows=[["Avg:99.00/Min:99.00/Max:99.00", 99, 99, 99]],
         )
         result = logger.backfill_missing_aggregates(
@@ -570,7 +570,7 @@ class TestBackfillMissingAggregates(unittest.TestCase):
     def test_skips_days_without_telemetry(self):
         """計測値が無い日は触らない。"""
         service, values_api = self._service(
-            date_rows=[["2026-04-19"]], agg_rows=[[]]
+            date_rows=[["", "2026-04-19"]], agg_rows=[[]]
         )
         result = logger.backfill_missing_aggregates(
             service, "sheet-id", [], self.TODAY, days=5
@@ -584,7 +584,7 @@ class TestBackfillMissingAggregates(unittest.TestCase):
         どちらに書くべきか決められない。**迷ったら書かない。**
         """
         service, values_api = self._service(
-            date_rows=[["2026-04-19"], ["2026-04-19"]],
+            date_rows=[["", "2026-04-19"], ["", "2026-04-19"]],
             agg_rows=[[], []],
         )
         result = logger.backfill_missing_aggregates(
@@ -603,7 +603,7 @@ class TestBackfillMissingAggregates(unittest.TestCase):
         """
         dates = [f"2026-03-{d:02d}" for d in range(1, 29)]
         service, values_api = self._service(
-            date_rows=[[d] for d in dates],
+            date_rows=[["", d] for d in dates],
             agg_rows=[[] for _ in dates],
         )
         logger.backfill_missing_aggregates(
@@ -618,7 +618,7 @@ class TestBackfillMissingAggregates(unittest.TestCase):
         """複数日ぶんを1回の書き込みでまとめる。"""
         dates = ["2026-04-17", "2026-04-18", "2026-04-19"]
         service, values_api = self._service(
-            date_rows=[[d] for d in dates],
+            date_rows=[["", d] for d in dates],
             agg_rows=[[] for _ in dates],
         )
         result = logger.backfill_missing_aggregates(
@@ -630,7 +630,7 @@ class TestBackfillMissingAggregates(unittest.TestCase):
     def test_today_is_not_backfilled(self):
         """当日は `sync_daily_aggregate` の担当。**二重に書かない。**"""
         service, values_api = self._service(
-            date_rows=[["2026-04-20"]], agg_rows=[[]]
+            date_rows=[["", "2026-04-20"]], agg_rows=[[]]
         )
         result = logger.backfill_missing_aggregates(
             service, "sheet-id", self._telemetry("2026-04-20"), self.TODAY, days=5
@@ -650,7 +650,7 @@ class TestBackfillMissingAggregates(unittest.TestCase):
         dates = [f"2026-03-{d:02d}" for d in range(1, 29)]
         telemetry = self._telemetry(*dates)          # 28日 × 2行 = 56行
         service, _ = self._service(
-            date_rows=[[d] for d in dates],
+            date_rows=[["", d] for d in dates],
             agg_rows=[[] for _ in dates],
         )
         with patch("indoor_temp_logger._parse_timestamp",
@@ -672,7 +672,7 @@ class TestBackfillMissingAggregates(unittest.TestCase):
         **数えていれば、シートを開かずに答えが出る。**
         """
         service, values_api = self._service(
-            date_rows=[["2026年4月19日"], ["2026-04-18"]],
+            date_rows=[["", "2026年4月19日"], ["", "2026-04-18"]],
             agg_rows=[[], []],
         )
         result = logger.backfill_missing_aggregates(
@@ -683,6 +683,60 @@ class TestBackfillMissingAggregates(unittest.TestCase):
         self.assertEqual(result["unparsed_dates"], 1)
         self.assertEqual(result["master_dates"], 1, "読めたのは 04-18 の1件だけ")
         self.assertIn("2026年4月19日", result["unparsed_samples"])
+
+    def test_fills_a_month_name_row_using_the_year_column(self):
+        """`April 20` を A列の年と合わせて読む。（CSI-014）
+
+        B列の143行がこの形で、その日数ぶんの日次集計が書かれないままだった。
+        オーナー確認（2026-09-02）で A列＝年と確定したので、合わせて読む。
+        """
+        service, values_api = self._service(
+            date_rows=[["2026", "April 19"]], agg_rows=[[]]
+        )
+        result = logger.backfill_missing_aggregates(
+            service, "sheet-id", self._telemetry("2026-04-19"), self.TODAY, days=5
+        )
+        self.assertEqual(result["filled"], 1, result)
+        self.assertEqual(result["unparsed_dates"], 0)
+        values_api.batchUpdate.assert_called_once()
+
+    def test_does_not_guess_a_year_when_the_year_cell_is_empty(self):
+        """⚠️ **年が無ければ読まない。**
+
+        `April 20` の年を推測して埋めると、**別の年の行に集計を書き込む。**
+        シートは2025年と2026年の両方を含む（実測: 2025年104行・2026年276行）。
+        **空欄のまま残すほうがまし。**
+        """
+        service, values_api = self._service(
+            date_rows=[["", "April 19"]], agg_rows=[[]]
+        )
+        result = logger.backfill_missing_aggregates(
+            service, "sheet-id", self._telemetry("2026-04-19"), self.TODAY, days=5
+        )
+        self.assertEqual(result["filled"], 0, "年が無いのに埋めている")
+        self.assertEqual(result["unparsed_dates"], 1)
+        values_api.batchUpdate.assert_not_called()
+
+    def test_does_not_guess_a_year_from_a_non_year_cell(self):
+        """A列が年に見えない値なら読まない（4桁でなければ年ではない）。"""
+        service, values_api = self._service(
+            date_rows=[["朝", "April 19"]], agg_rows=[[]]
+        )
+        result = logger.backfill_missing_aggregates(
+            service, "sheet-id", self._telemetry("2026-04-19"), self.TODAY, days=5
+        )
+        self.assertEqual(result["filled"], 0)
+        values_api.batchUpdate.assert_not_called()
+
+    def test_month_name_parsing_does_not_depend_on_locale(self):
+        """月名は表で持つ。`strptime("%B")` のロケール依存を避ける。"""
+        self.assertEqual(logger._parse_date("April 20", year=2026),
+                         datetime.date(2026, 4, 20))
+        self.assertEqual(logger._parse_date("Apr. 5", year=2025),
+                         datetime.date(2025, 4, 5))
+        self.assertIsNone(logger._parse_date("April 20"), "年なしで読んではいけない")
+        self.assertIsNone(logger._parse_date("Nonsense 20", year=2026))
+        self.assertIsNone(logger._parse_date("April 99", year=2026), "存在しない日")
 
     def test_year_source_diagnosis_finds_the_year_column(self):
         """読めない日付の年が、隣の列から取れるかを数える。（CSI-014）
@@ -733,7 +787,7 @@ class TestBackfillMissingAggregates(unittest.TestCase):
     def test_diagnostics_come_back_even_when_it_filled_something(self):
         """埋めたときも診断値は返す。**片方の道でだけ見えるのを避ける。**"""
         service, _ = self._service(
-            date_rows=[["2026-04-19"]], agg_rows=[[]]
+            date_rows=[["", "2026-04-19"]], agg_rows=[[]]
         )
         result = logger.backfill_missing_aggregates(
             service, "sheet-id", self._telemetry("2026-04-19"), self.TODAY, days=5
@@ -775,7 +829,7 @@ class TestBackfillMissingAggregates(unittest.TestCase):
         values_api = service.spreadsheets.return_value.values.return_value
         values_api.get.return_value.execute.side_effect = [
             {"values": []},                 # TempHistory
-            {"values": [["2026-04-20"]]},   # 当日の集計用（成功）
+            {"values": [["", "2026-04-20"]]},   # 当日の集計用（成功）
             RuntimeError("sheets unavailable"),   # 埋め直しの読み取りで失敗
         ]
         values_api.append.return_value.execute.return_value = {}
@@ -835,7 +889,7 @@ class TestBackfillMissingAggregates(unittest.TestCase):
         values_api = service.spreadsheets.return_value.values.return_value
         values_api.get.return_value.execute.side_effect = [
             {"values": []},
-            {"values": [["2026-04-20"]]},
+            {"values": [["", "2026-04-20"]]},
         ]
         values_api.append.return_value.execute.return_value = {}
         values_api.update.return_value.execute.return_value = {}
