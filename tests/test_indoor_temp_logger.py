@@ -684,6 +684,18 @@ class TestBackfillMissingAggregates(unittest.TestCase):
         self.assertEqual(result["master_dates"], 1, "読めたのは 04-18 の1件だけ")
         self.assertIn("2026年4月19日", result["unparsed_samples"])
 
+    def test_backfill_window_is_wider_than_the_observed_ingestion_delay(self):
+        """埋め戻しの窓は、**行ができるまでの遅れより広く**保つ。（CSI-014）
+
+        CSI-020 の実測で、紙のアップロードから取り込みまで 115〜122日かかっていた。
+        窓が120日だと、行ができた頃には窓を出ていて**二度と埋まらない**。
+        実際 2026-09-02 の実測で、計測値のある98日のうち行があったのは1日だけ。
+        """
+        self.assertGreaterEqual(
+            logger.BACKFILL_DAYS, 180,
+            "取り込みの遅れ（実測115〜122日）に対して窓が狭すぎる",
+        )
+
     def test_reports_coverage_of_days_that_have_telemetry(self):
         """**健全性は「読めない行の数」ではなく「集計が欠けている日の数」で見る。**
 
