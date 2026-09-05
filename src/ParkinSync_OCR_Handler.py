@@ -289,7 +289,12 @@ def lambda_handler(event, context):
 
     # Skip files already sitting in the review/ quarantine folder.
     if key.startswith(_REVIEW_PREFIX):
-        return {'statusCode': 200, 'body': 'Skipped review/ prefix file.'}
+        return {
+            'statusCode': 200,
+            'body': 'Skipped review/ prefix file.',
+            'status': 'skipped',
+            'next_action': 'review the quarantined file before re-uploading it',
+        }
 
     # Initialize AWS clients inside the handler for clean unit-test mocking.
     s3 = boto3.client('s3')
@@ -299,7 +304,12 @@ def lambda_handler(event, context):
     # Idempotency: never reprocess a file we already ingested.
     if _is_already_processed(s3, bucket, key):
         print(f"[IDEMPOTENCY] Already processed: {key}")
-        return {'statusCode': 200, 'body': f'Already processed: {key}'}
+        return {
+            'statusCode': 200,
+            'body': f'Already processed: {key}',
+            'status': 'already_processed',
+            'next_action': 'no action required',
+        }
 
     # Filename month hint, used to resolve day-only date cells (e.g. "20th").
     fallback_month = _infer_month_from_key(key)
@@ -321,7 +331,12 @@ def lambda_handler(event, context):
         tables = [b for b in blocks if b['BlockType'] == 'TABLE']
         if not tables:
             _quarantine_and_notify(s3, bucket, key, "Textract: テーブルが検出されませんでした")
-            return {'statusCode': 404, 'body': 'No table detected in PDF'}
+            return {
+                'statusCode': 404,
+                'body': 'No table detected in PDF',
+                'status': 'quarantined',
+                'next_action': 'check the PDF scan and upload a readable table again',
+            }
 
         # Map Textract blocks into rows/cols dictionary.
         rows = {}
@@ -408,7 +423,14 @@ def lambda_handler(event, context):
         body = f'Successfully processed {len(final_data_batch)} rows.'
         if not tagged:
             body += ' WARNING: object could not be tagged as processed.'
-        return {'statusCode': 200, 'body': body, 'tagged': tagged}
+        return {
+            'statusCode': 200,
+            'body': body,
+            'status': 'processed' if tagged else 'processed_tagging_warning',
+            'rows_processed': len(final_data_batch),
+            'tagged': tagged,
+            'next_action': 'review the imported rows in the Master sheet',
+        }
 
     except Exception as e:
         print(f"[CRITICAL ERROR] {str(e)}")
@@ -435,6 +457,8 @@ def lambda_handler(event, context):
             return {
                 'statusCode': 422,
                 'body': f'Permanently unprocessable: {type(e).__name__}',
+                'status': 'quarantined_permanent_failure',
+                'next_action': 'follow the quarantine notification instructions before retrying',
                 'quarantined': True,
             }
 

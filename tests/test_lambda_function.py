@@ -250,6 +250,8 @@ class TestLambdaHandler(unittest.TestCase):
         response = handler.lambda_handler(self._event(key='review/log.jpg'), None)
         self.assertEqual(response['statusCode'], 200)
         self.assertIn('Skipped', response['body'])
+        self.assertEqual(response['status'], 'skipped')
+        self.assertIn('review', response['next_action'])
 
     @patch('boto3.client')
     def test_already_processed_returns_200_without_textract(self, mock_boto):
@@ -259,6 +261,8 @@ class TestLambdaHandler(unittest.TestCase):
         response = handler.lambda_handler(self._event(), None)
         self.assertEqual(response['statusCode'], 200)
         self.assertIn('Already processed', response['body'])
+        self.assertEqual(response['status'], 'already_processed')
+        self.assertEqual(response['next_action'], 'no action required')
         mock_textract.analyze_document.assert_not_called()
 
     @patch('boto3.client')
@@ -267,6 +271,8 @@ class TestLambdaHandler(unittest.TestCase):
         response = handler.lambda_handler(self._event(), None)
         self.assertEqual(response['statusCode'], 404)
         self.assertIn('No table detected', response['body'])
+        self.assertEqual(response['status'], 'quarantined')
+        self.assertIn('upload', response['next_action'])
         mock_s3.copy_object.assert_called_once()  # quarantine triggered
 
     @patch('boto3.client')
@@ -297,6 +303,8 @@ class TestLambdaHandler(unittest.TestCase):
 
         self.assertEqual(response['statusCode'], 422)
         self.assertTrue(response.get('quarantined'), "隔離した印が返っていない")
+        self.assertEqual(response['status'], 'quarantined_permanent_failure')
+        self.assertIn('quarantine', response['next_action'])
         mock_s3.copy_object.assert_called_once()   # 隔離はする
 
     @patch('boto3.client')
