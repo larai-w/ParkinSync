@@ -219,6 +219,40 @@ Run tests: `PYTHONPATH=src python -m unittest discover -s tests -v` (requires
 
 ## Local Development
 
+### Offline synthetic benchmark (P4)
+
+The [P4 runner](analytics/p4_run_all.py) generates a deterministic 30-day fixture
+and checks missingness, record-source conflation, and simple baseline evaluators.
+It uses only the Python standard library and does not access AWS or production data.
+
+```bash
+# Use a new directory outside the repository for each evidence run.
+python3 analytics/p4_run_all.py --output-dir /tmp/parkinsync-p4-run-001
+python3 -m unittest discover -s analytics -p 'test_p4_*.py' -v
+```
+
+The output includes `manifest.json`, generated labels, and comparison reports.
+Relative output paths resolve from the caller's working directory. Existing output
+directories are rejected so previous evidence cannot be silently overwritten.
+
+Interpret these as software regression checks:
+
+- The 29 next-day label rows split chronologically into 17 training, 6 validation,
+  and 6 test rows. They do not estimate real-world prediction performance.
+- `auroc` gives tied scores half credit. The legacy `prAuc` field reports stepwise
+  **average precision**, grouping tied scores; it is not trapezoidal PR area.
+  Suite version `P4-full-suite-v2` includes these corrected tie calculations.
+- The feature/date guard rejects empty or malformed metadata, forbidden feature
+  names, and invalid date order or next-day horizons. It does not establish when
+  real observations became available or validate arbitrary data provenance.
+- Use the runner's generated labels. Individual `--labels` commands are development
+  helpers; their `syntheticOnly` flag does not authenticate external input.
+- `PASS` means the commands and regression tests succeeded. Negative-control
+  performance has no pass threshold; subgroup reports are fixture partitions,
+  not fairness evidence. This runner is invoked manually, not by the current CI.
+
+### Application and FHIR development
+
 ```bash
 # Python environment
 python3 -m venv .venv
