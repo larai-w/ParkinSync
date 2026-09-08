@@ -14,18 +14,37 @@ FORBIDDEN_FEATURES = {"forecastDate", "label_high_support_next_day", "conditionN
 
 
 def check(payload: dict) -> list[str]:
+    if not isinstance(payload, dict):
+        return ['invalid-payload']
+    columns = payload.get('featureColumns')
+    rows = payload.get('rows')
+    if not isinstance(columns, list) or not columns or any(not isinstance(x, str) for x in columns):
+        return ['invalid-feature-columns']
     errors = []
-    features = set(payload.get("featureColumns", []))
+    features = set(columns)
+    if len(features) != len(columns):
+        errors.append('duplicate-feature-columns')
     errors.extend(f"forbidden-feature:{name}" for name in sorted(features & FORBIDDEN_FEATURES))
     errors.extend(f"unknown-feature:{name}" for name in sorted(features - ALLOWED_FEATURES))
-    for index, row in enumerate(payload.get("rows", [])):
-        if date.fromisoformat(row["forecastDate"]) <= date.fromisoformat(row["localDate"]):
-            errors.append(f"non-future-horizon:{index}")
-        if any(name in row for name in FORBIDDEN_FEATURES - {"label_high_support_next_day"}):
-            # forecastDate is metadata, but must never be passed as a feature.
-            if "forecastDate" in payload.get("featureColumns", []):
-                errors.append(f"future-feature:{index}")
+    if not isinstance(rows, list) or not rows:
+        return sorted(set(errors + ['empty-or-invalid-rows']))
+    previous = None
+    for index, row in enumerate(rows):
+        try:
+            if not isinstance(row, dict):
+                raise ValueError()
+            local = date.fromisoformat(row['localDate'])
+            forecast = date.fromisoformat(row['forecastDate'])
+        except (KeyError, TypeError, ValueError):
+            errors.append(f'invalid-row-dates:{index}')
+            continue
+        if (forecast - local).days != 1:
+            errors.append(f'non-next-day-horizon:{index}')
+        if previous is not None and local <= previous:
+            errors.append(f'non-increasing-date:{index}')
+        previous = local
     return sorted(set(errors))
+
 
 
 def main() -> int:

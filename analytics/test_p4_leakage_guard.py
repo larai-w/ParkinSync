@@ -23,6 +23,20 @@ class LeakageGuardTest(unittest.TestCase):
         }
         self.assertIn("forbidden-feature:label_high_support_next_day", check(payload))
 
+    def test_empty_and_malformed_input_is_not_a_pass(self):
+        for payload in ({}, None, [], {'featureColumns': [], 'rows': []},
+                        {'featureColumns': ['weatherAvg'], 'rows': []},
+                        {'featureColumns': ['weatherAvg'], 'rows': [None]},
+                        {'featureColumns': ['weatherAvg'], 'rows': [{'localDate': 'bad'}]}):
+            self.assertTrue(check(payload))
+
+    def test_horizon_and_order_are_checked(self):
+        columns = ['weatherAvg']
+        row = {'localDate': '2035-01-02', 'forecastDate': '2035-01-04'}
+        self.assertTrue(check({'featureColumns': columns, 'rows': [row]}))
+        row['forecastDate'] = '2035-01-03'
+        self.assertTrue(check({'featureColumns': columns, 'rows': [row, row]}))
+
 
 if __name__ == "__main__":
     unittest.main()

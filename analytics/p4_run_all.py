@@ -7,9 +7,7 @@ Only the Python standard library is required.
 
     python3 analytics/p4_run_all.py --output-dir <dir>
 
-The manuscript-linting steps used while writing the paper are intentionally not
-part of this release: they read a manuscript file that is not published, so they
-would fail for anyone else. The benchmark itself is complete without them.
+Choose a new output directory for every run to preserve prior evidence.
 """
 
 from __future__ import annotations
@@ -31,7 +29,11 @@ def main() -> int:
     parser.add_argument("--output-dir", type=Path, required=True)
     args = parser.parse_args()
     root = Path(__file__).resolve().parents[1]
-    args.output_dir.mkdir(parents=True, exist_ok=True)
+    # Resolve against the caller before subprocesses change their working directory.
+    args.output_dir = args.output_dir.resolve()
+    if args.output_dir.exists():
+        parser.error('output directory already exists; choose a new evidence directory')
+    args.output_dir.mkdir(parents=True, exist_ok=False)
     labels = args.output_dir / "labels.json"
     results: list[dict[str, object]] = []
     commands = [
@@ -48,11 +50,11 @@ def main() -> int:
         result = run(command, root)
         results.append(result)
         if result["returnCode"] != 0:
-            manifest = {"protocol": "P4-full-suite-v1", "status": "FAIL", "steps": results, "syntheticOnly": True}
+            manifest = {"protocol": "P4-full-suite-v2", "status": "FAIL", "steps": results, "syntheticOnly": True}
             (args.output_dir / "manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
             print(json.dumps(manifest, ensure_ascii=False))
             return 1
-    manifest = {"protocol": "P4-full-suite-v1", "status": "PASS", "steps": results, "artifacts": sorted(path.name for path in args.output_dir.iterdir()), "syntheticOnly": True, "note": "End-to-end synthetic suite; not a clinical or deployment-performance claim."}
+    manifest = {"protocol": "P4-full-suite-v2", "status": "PASS", "steps": results, "artifacts": sorted(path.name for path in args.output_dir.iterdir()), "syntheticOnly": True, "note": "End-to-end synthetic suite; not a clinical or deployment-performance claim."}
     (args.output_dir / "manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     print(json.dumps({"protocol": manifest["protocol"], "status": manifest["status"], "stepCount": len(results)}, ensure_ascii=False, sort_keys=True))
     return 0
