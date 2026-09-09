@@ -729,6 +729,59 @@ class TestBackfillMissingAggregates(unittest.TestCase):
         self.assertEqual(cov["row_missing"], 1, cov)
         self.assertEqual(cov["row_found"], 0)
 
+    def test_reports_which_dates_it_could_read_not_just_how_many(self):
+        """**読めた日付の「範囲」を返す。**（CSI-014・2026-09-09）
+
+        件数だけでは、欠けている日が「読めていない」のか「行が無い」のかを
+        分けられない。範囲が分かれば、欠けた日が範囲の内側か外側かで決まる。
+        """
+        service, _ = self._service(
+            date_rows=[["", "2026-04-15"], ["", "2026-04-18"], ["", "2026-04-16"]],
+            agg_rows=[[], [], []],
+        )
+        result = logger.backfill_missing_aggregates(
+            service, "sheet-id", self._telemetry("2026-04-19"), self.TODAY, days=5
+        )
+        self.assertEqual(result["master_date_range"], ["2026-04-15", "2026-04-18"])
+
+    def test_master_date_range_is_none_when_nothing_could_be_read(self):
+        """1件も読めないときに `[None, None]` のような形を作らない。"""
+        service, _ = self._service(date_rows=[["", "April 20"]], agg_rows=[[]])
+        result = logger.backfill_missing_aggregates(
+            service, "sheet-id", self._telemetry("2026-04-19"), self.TODAY, days=5
+        )
+        self.assertIsNone(result["master_date_range"])
+
+    def test_missing_range_separates_a_parse_problem_from_an_absent_row(self):
+        """**欠けた日が読めた範囲の内側か外側かで、打ち手が正反対になる。**
+
+        内側なら「その日の行はあるはずなのに引けていない」＝読み取りの問題。
+        外側なら「そもそもその日の行が無い」＝取り込みの問題。
+        この2つを診断だけで分けられるようにする（CSI-014・2026-09-09）。
+        """
+        # 読めたのは 04-15..04-16 だけ。欠けた 04-18/04-19 は**範囲の外側**。
+        service, _ = self._service(
+            date_rows=[["", "2026-04-15"], ["", "2026-04-16"]],
+            agg_rows=[[], []],
+        )
+        result = logger.backfill_missing_aggregates(
+            service, "sheet-id",
+            self._telemetry("2026-04-18") + self._telemetry("2026-04-19"),
+            self.TODAY, days=5,
+        )
+        self.assertEqual(result["coverage"]["row_missing"], 2, result["coverage"])
+        self.assertEqual(result["missing_range"], ["2026-04-18", "2026-04-19"])
+        self.assertEqual(result["master_date_range"], ["2026-04-15", "2026-04-16"])
+
+    def test_missing_range_is_none_when_every_day_found_its_row(self):
+        """欠けていないときに範囲を作らない。**空を「ある」と書かない。**"""
+        service, _ = self._service(date_rows=[["", "2026-04-19"]], agg_rows=[[]])
+        result = logger.backfill_missing_aggregates(
+            service, "sheet-id", self._telemetry("2026-04-19"), self.TODAY, days=5
+        )
+        self.assertEqual(result["coverage"]["row_missing"], 0)
+        self.assertIsNone(result["missing_range"])
+
     def test_fills_a_month_name_row_using_the_year_column(self):
         """`April 20` を A列の年と合わせて読む。（CSI-014）
 

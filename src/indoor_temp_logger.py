@@ -270,7 +270,12 @@ def index_master_dates(date_rows, start_row=2):
                 samples.append(text[:20])
             continue
         by_date.setdefault(parsed, []).append(row_number)
-    return {"by_date": by_date, "unparsed": unparsed, "samples": samples}
+    # **読めた日付が「いつのものか」を返す。**（CSI-014・2026-09-09）
+    # 件数だけでは、最近の日が「読めていない」のか「行が無い」のか分からない。
+    # 範囲が分かれば、欠けている日が範囲の内側か外側かで打ち手が決まる。
+    span = [str(min(by_date)), str(max(by_date))] if by_date else None
+    return {"by_date": by_date, "unparsed": unparsed, "samples": samples,
+            "date_range": span}
 
 
 # `April 20` のような**年の無い**日付から、年をどこで引けばよいかを探すための診断。
@@ -285,6 +290,14 @@ _YEAR_RE = re.compile(r"(?<!\d)(?:19|20)\d{2}(?!\d)")
 # 走査する列（A..F）。B は日付そのものなので候補から外す。
 _YEAR_SCAN_RANGE = "A2:F"
 _DATE_COL = 1  # A2:F の中で B 列の位置
+
+
+def _span_of(days):
+    """日付の並びから `[最古, 最新]` を返す。空なら `None`。
+
+    ⚠️ **日付だけを返す。** 記録の中身は持たない（`_shape_of` と同じ方針）。
+    """
+    return [str(min(days)), str(max(days))] if days else None
 
 
 def _shape_of(text):
@@ -485,6 +498,7 @@ def backfill_missing_aggregates(service, spreadsheet_id, telemetry_rows, today,
     telemetry_by_date = group_telemetry_by_date(telemetry_rows)
     diagnostics = {
         "master_dates": len(master["by_date"]),
+        "master_date_range": master["date_range"],
         "unparsed_dates": master["unparsed"],
         "unparsed_samples": master["samples"],
     }
@@ -497,6 +511,8 @@ def backfill_missing_aggregates(service, spreadsheet_id, telemetry_rows, today,
     # 「計測値があるのに集計が書かれていない日が何日あるか」**。
     coverage = {"with_telemetry": 0, "row_found": 0, "already_filled": 0,
                 "row_missing": 0, "row_duplicated": 0}
+    # 行が引けなかった日を覚えておく。**日付だけで、記録の中身は持たない。**
+    missing_days = []
 
     for back in range(1, days + 1):
         day = today - datetime.timedelta(days=back)
@@ -509,6 +525,8 @@ def backfill_missing_aggregates(service, spreadsheet_id, telemetry_rows, today,
             # 行が無い / 重複している日は触らない
             key = "row_duplicated" if len(matches) > 1 else "row_missing"
             coverage[key] += 1
+            if key == "row_missing":
+                missing_days.append(day)
             continue
         coverage["row_found"] += 1
         row_number = matches[0]
@@ -528,14 +546,16 @@ def backfill_missing_aggregates(service, spreadsheet_id, telemetry_rows, today,
     if not updates:
         # ⚠️ **早い戻り道にも同じものを載せる。** 片方だけに診断値を載せると、
         # 「何も埋めなかったとき」＝いちばん知りたいときに限って見えなくなる。
-        return {"filled": 0, "dates": [], "coverage": coverage, **diagnostics}
+        return {"filled": 0, "dates": [], "coverage": coverage,
+                "missing_range": _span_of(missing_days), **diagnostics}
 
     values_api.batchUpdate(
         spreadsheetId=spreadsheet_id,
         body={"valueInputOption": "RAW", "data": updates},
     ).execute()
     return {"filled": len(updates), "dates": filled_dates,
-            "coverage": coverage, **diagnostics}
+            "coverage": coverage, "missing_range": _span_of(missing_days),
+            **diagnostics}
 
 
 def sync_daily_aggregate(service, spreadsheet_id, telemetry_rows, target_date):
@@ -813,7 +833,9 @@ def lambda_handler(event, context):
             print(
                 "Backfill filled nothing: "
                 f"master_dates={backfill.get('master_dates', 0)} "
+                f"master_date_range={json.dumps(backfill.get('master_date_range'), ensure_ascii=False)} "
                 f"unparsed_dates={backfill.get('unparsed_dates', 0)} "
+                f"missing_range={json.dumps(backfill.get('missing_range'), ensure_ascii=False)} "
                 f"coverage={json.dumps(backfill.get('coverage', {}), ensure_ascii=False)}"
             )
             # 読めない行があるなら、**年がどこかに書いてあるか**まで見る。
