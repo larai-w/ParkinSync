@@ -921,7 +921,13 @@ class TestBackfillMissingAggregates(unittest.TestCase):
         self.assertEqual(result["text"], 2)
         self.assertEqual(result["blank"], 1)
         self.assertIsNotNone(result["serial_span"], "シリアルの範囲を人が読める形で返す")
-        self.assertIn("99A99A", result["text_shapes"], "テキストは形ごとに数える")
+        # ⚠️ `8月26日` の形は `9#99#`。**`99A99A` ではない。**
+        # `_shape_of` は非ASCIIを `#` にする。2026-09-10 に本番ログの
+        # `99A99A` を見て「日本語の日付だろう」と断定したが誤りで、
+        # このテストにもその誤りを書いていた。**CIが捕まえた。**
+        self.assertIn("9#99#", result["text_shapes"], "テキストは形ごとに数える")
+        self.assertNotIn("99A99A", result["text_shapes"],
+                         "日本語は ASCII英字にならない。99A99A は別物")
 
     def test_date_cell_types_does_not_count_bool_as_serial(self):
         """`TRUE` を日付型として数えない。
