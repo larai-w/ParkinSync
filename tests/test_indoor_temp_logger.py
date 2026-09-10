@@ -668,11 +668,16 @@ class TestBackfillMissingAggregates(unittest.TestCase):
 
         45日間ずっと `master-date-missing` だったとき、残った問いは
         「行が無いのか、書式が読めていないだけなのか」だった。
-        `2026年4月19日` のような書式は `_parse_date` が読めない。
         **数えていれば、シートを開かずに答えが出る。**
+
+        ⚠️ **2026-09-10 に前提が変わった。** このテストは元々
+        `2026年4月19日` を「読めない例」として使っていたが、
+        `_parse_jp_date` を足して**読めるようになった**（CSI-014）。
+        読めない例は、実測（`unparsed_shapes`）に出ていた別の形へ差し替える。
+        `9/9 (*)` は `9/9 (*)`: 4件 として実際に残っている形。
         """
         service, values_api = self._service(
-            date_rows=[["", "2026年4月19日"], ["", "2026-04-18"]],
+            date_rows=[["", "9/9 (*)"], ["", "2026-04-18"]],
             agg_rows=[[], []],
         )
         result = logger.backfill_missing_aggregates(
@@ -682,7 +687,24 @@ class TestBackfillMissingAggregates(unittest.TestCase):
         values_api.batchUpdate.assert_not_called()
         self.assertEqual(result["unparsed_dates"], 1)
         self.assertEqual(result["master_dates"], 1, "読めたのは 04-18 の1件だけ")
-        self.assertIn("2026年4月19日", result["unparsed_samples"])
+        self.assertIn("9/9 (*)", result["unparsed_samples"])
+
+    def test_japanese_date_row_is_now_matched(self):
+        """**日本語の日付の行に、集計が入るようになったことを固定する。**（CSI-014・2026-09-10）
+
+        パーサ単体のテストだけでは「行と突き合わせて実際に書き込まれるか」は
+        担保できない。読める→行が見つかる→書き込まれる、まで通す。
+        """
+        service, values_api = self._service(
+            date_rows=[["2026", "4月19日"], ["", "2026-04-18"]],
+            agg_rows=[[], []],
+        )
+        result = logger.backfill_missing_aggregates(
+            service, "sheet-id", self._telemetry("2026-04-19"), self.TODAY, days=5
+        )
+        self.assertEqual(result["filled"], 1, "日本語の日付の行が埋まっていない")
+        self.assertEqual(result["unparsed_dates"], 0)
+        values_api.batchUpdate.assert_called_once()
 
     def test_backfill_window_is_wider_than_the_observed_ingestion_delay(self):
         """埋め戻しの窓は、**行ができるまでの遅れより広く**保つ。（CSI-014）
