@@ -668,11 +668,16 @@ class TestBackfillMissingAggregates(unittest.TestCase):
 
         45日間ずっと `master-date-missing` だったとき、残った問いは
         「行が無いのか、書式が読めていないだけなのか」だった。
-        `2026年4月19日` のような書式は `_parse_date` が読めない。
         **数えていれば、シートを開かずに答えが出る。**
+
+        ⚠️ **2026-09-10 に前提が変わった。** このテストは元々
+        `2026年4月19日` を「読めない例」として使っていたが、
+        `_parse_jp_date` を足して**読めるようになった**（CSI-014）。
+        読めない例は、実測（`unparsed_shapes`）に出ていた別の形へ差し替える。
+        `9/9 (*)` は `9/9 (*)`: 4件 として実際に残っている形。
         """
         service, values_api = self._service(
-            date_rows=[["", "2026年4月19日"], ["", "2026-04-18"]],
+            date_rows=[["", "9/9 (*)"], ["", "2026-04-18"]],
             agg_rows=[[], []],
         )
         result = logger.backfill_missing_aggregates(
@@ -682,7 +687,24 @@ class TestBackfillMissingAggregates(unittest.TestCase):
         values_api.batchUpdate.assert_not_called()
         self.assertEqual(result["unparsed_dates"], 1)
         self.assertEqual(result["master_dates"], 1, "読めたのは 04-18 の1件だけ")
-        self.assertIn("2026年4月19日", result["unparsed_samples"])
+        self.assertIn("9/9 (*)", result["unparsed_samples"])
+
+    def test_japanese_date_row_is_now_matched(self):
+        """**日本語の日付の行に、集計が入るようになったことを固定する。**（CSI-014・2026-09-10）
+
+        パーサ単体のテストだけでは「行と突き合わせて実際に書き込まれるか」は
+        担保できない。読める→行が見つかる→書き込まれる、まで通す。
+        """
+        service, values_api = self._service(
+            date_rows=[["2026", "4月19日"], ["", "2026-04-18"]],
+            agg_rows=[[], []],
+        )
+        result = logger.backfill_missing_aggregates(
+            service, "sheet-id", self._telemetry("2026-04-19"), self.TODAY, days=5
+        )
+        self.assertEqual(result["filled"], 1, "日本語の日付の行が埋まっていない")
+        self.assertEqual(result["unparsed_dates"], 0)
+        values_api.batchUpdate.assert_called_once()
 
     def test_backfill_window_is_wider_than_the_observed_ingestion_delay(self):
         """埋め戻しの窓は、**行ができるまでの遅れより広く**保つ。（CSI-014）
@@ -835,6 +857,47 @@ class TestBackfillMissingAggregates(unittest.TestCase):
         self.assertIsNone(logger._parse_date("April 20"), "年なしで読んではいけない")
         self.assertIsNone(logger._parse_date("Nonsense 20", year=2026))
         self.assertIsNone(logger._parse_date("April 99", year=2026), "存在しない日")
+
+    def test_reads_japanese_dates(self):
+        """`8月26日` を読む。**CloudWatch の `unparsed_shapes` から足した。**（CSI-014）
+
+        2026-09-02 に「B列の143行は `April 20` 形式」と判断したのは、
+        `unparsed_samples` の**3件だけ**を見た結果だった。実際にはその形は
+        1件も無く、修正しても 143→138 と5件しか減らなかった。
+
+        2026-09-10 に `unparsed_shapes` を1回読んだら内訳が出た:
+        `99A99A` 32件 / `99A9A` 12件 = **日本語の日付が最多（44件）**。
+
+        年が本文にあれば `year` 無しでも読む。無ければ A列由来の `year` を使う。
+        **どちらも無ければ読まない。**
+        """
+        self.assertEqual(logger._parse_date("8月26日", year=2026),
+                         datetime.date(2026, 8, 26))
+        self.assertEqual(logger._parse_date("8月5日", year=2026),
+                         datetime.date(2026, 8, 5), "日が1桁")
+        self.assertEqual(logger._parse_date("12月31日", year=2026),
+                         datetime.date(2026, 12, 31), "月が2桁")
+        self.assertEqual(logger._parse_date("2026年4月19日"),
+                         datetime.date(2026, 4, 19), "本文に年があれば year 無しでも読む")
+        self.assertEqual(logger._parse_date("2025年12月1日", year=2026),
+                         datetime.date(2025, 12, 1), "本文の年を優先する")
+        self.assertEqual(logger._parse_date("8月26日(火)", year=2026),
+                         datetime.date(2026, 8, 26), "曜日つき")
+        self.assertIsNone(logger._parse_date("8月26日"),
+                          "年が無ければ読まない。推測して別の年に書き込まない")
+
+    def test_does_not_read_non_dates_as_dates(self):
+        """**日付でないものを日付として読まない。**（CSI-014・2026-09-10）
+
+        `unparsed_charset` に `±` `%` `#` が含まれていた＝B列には日付でない値も
+        入っている。「読めない行を減らす」を目標にすると、日付でないものを
+        読む方向に倒れる。**別の日に集計を書くのは、空欄で残すより悪い。**
+        """
+        for text in ("±0.5", "12%", "#N/A", "826", "9/9 (*)", "", "  "):
+            self.assertIsNone(logger._parse_date(text, year=2026),
+                              f"{text!r} を日付として読んでいる")
+        self.assertIsNone(logger._parse_date("13月1日", year=2026), "存在しない月")
+        self.assertIsNone(logger._parse_date("2月30日", year=2026), "存在しない日")
 
     def test_year_source_diagnosis_finds_the_year_column(self):
         """読めない日付の年が、隣の列から取れるかを数える。（CSI-014）

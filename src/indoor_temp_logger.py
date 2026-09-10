@@ -89,6 +89,11 @@ def _parse_date(value, year=None):
     # 診断で確かめてある（`year_in_column={"A":143}` / `years_by_column={"A":[2026]}`）。
     # **年が無ければ読まない。** 推測して埋めると別の年の行に集計を書き込み、
     # 空欄で残すより悪くなる。
+    # 日本語の日付は、本文に年があれば `year` 無しでも読める（CSI-014・2026-09-10）
+    jp = _parse_jp_date(text, year=year)
+    if jp is not None:
+        return jp
+
     if year is not None:
         parsed = _parse_month_day(text)
         if parsed is not None:
@@ -118,6 +123,45 @@ _MONTHS = {
 }
 
 _MONTH_DAY_RE = re.compile(r"^([A-Za-z]+)\.?\s+(\d{1,2})$")
+
+# 日本語の日付。**CloudWatch の `unparsed_shapes` を読んで足した**（CSI-014・2026-09-10）。
+#
+# 2026-09-02 に「B列の143行は `April 20` 形式」と判断したが、それは
+# `unparsed_samples` の**3件だけ**を見た結果だった。実際にはその形は1件も無く、
+# 修正しても 143→138 と5件しか減らなかった。
+#
+# 2026-09-10 に `unparsed_shapes` を1回読んで内訳が分かった:
+#   99A99A: 32件 / 99A9A: 12件  → `8月26日` `8月5日` = **日本語の日付が最多（44件）**
+#   99/99 AA: 11 / 999: 9 / 9/9: 9 / 99/99: 8 / 99999: 5 / 9/9 (*): 4
+#
+# ⚠️ **全部を読もうとしない。** `unparsed_charset` に `±` `%` `#` が含まれる＝
+# B列には日付でない値も入っている。読める行を増やすことを目標にすると、
+# 日付でないものを日付として読む方向に倒れる。**別の日に集計を書くのは、
+# 空欄で残すより悪い。** ここで足すのは形が明確な日本語の日付だけ。
+#
+# 年つき（`2026年4月19日`）も同じ式で拾う。年が本文にあるときはそれを使い、
+# 無ければ A列から渡された年を使う。**どちらも無ければ読まない。**
+_JP_DATE_RE = re.compile(
+    r"^\s*(?:(?P<year>\d{4})\s*年\s*)?(?P<month>\d{1,2})\s*月\s*(?P<day>\d{1,2})\s*日"
+)
+
+
+def _parse_jp_date(text, year=None):
+    """`8月26日` `2026年4月19日` から date を作る。読めなければ None。
+
+    本文に年があればそれを使う。無ければ `year`（A列由来）を使う。
+    **どちらも無ければ None。** 推測して埋めない。
+    """
+    match = _JP_DATE_RE.match(text)
+    if not match:
+        return None
+    resolved = int(match.group("year")) if match.group("year") else year
+    if resolved is None:
+        return None
+    try:
+        return datetime.date(resolved, int(match.group("month")), int(match.group("day")))
+    except ValueError:
+        return None
 
 
 def _parse_month_day(text):
