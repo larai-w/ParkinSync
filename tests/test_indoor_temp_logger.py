@@ -899,6 +899,47 @@ class TestBackfillMissingAggregates(unittest.TestCase):
         self.assertIsNone(logger._parse_date("13月1日", year=2026), "存在しない月")
         self.assertIsNone(logger._parse_date("2月30日", year=2026), "存在しない日")
 
+    def test_date_cell_types_counts_serial_vs_text(self):
+        """B列が**日付型か文字列か**を数える。（CSI-014・2026-09-10）
+
+        Master は `FORMATTED_VALUE` で読んでいるので、同じ日付でもセルの書式で
+        別の文字列になる。`UNFORMATTED_VALUE` なら日付型はシリアル値で返る。
+
+        **切り替える前に数える。** テキストのセルは文字列のまま返るので、
+        混在していれば二段構えが要る。数えずに切り替えると、いま読めている行が
+        読めなくなる。
+        """
+        rows = [
+            ["2026", 46266],       # 日付型 → シリアル
+            ["2026", 46267],       # 日付型
+            ["2026", "8月26日"],    # テキスト
+            ["2026", "±0.5"],      # 日付ですらない
+            ["2026", ""],          # 空
+        ]
+        result = logger.diagnose_date_cell_types(rows)
+        self.assertEqual(result["serial"], 2)
+        self.assertEqual(result["text"], 2)
+        self.assertEqual(result["blank"], 1)
+        self.assertIsNotNone(result["serial_span"], "シリアルの範囲を人が読める形で返す")
+        # ⚠️ `8月26日` の形は `9#99#`。**`99A99A` ではない。**
+        # `_shape_of` は非ASCIIを `#` にする。2026-09-10 に本番ログの
+        # `99A99A` を見て「日本語の日付だろう」と断定したが誤りで、
+        # このテストにもその誤りを書いていた。**CIが捕まえた。**
+        self.assertIn("9#99#", result["text_shapes"], "テキストは形ごとに数える")
+        self.assertNotIn("99A99A", result["text_shapes"],
+                         "日本語は ASCII英字にならない。99A99A は別物")
+
+    def test_date_cell_types_does_not_count_bool_as_serial(self):
+        """`TRUE` を日付型として数えない。
+
+        Python では `bool` は `int` の派生なので、素朴に `isinstance(v, int)` と
+        書くと **`TRUE` がシリアル値に化ける。** 数え間違えると、切り替えの
+        判断そのものを誤る。
+        """
+        result = logger.diagnose_date_cell_types([["2026", True], ["2026", 46266]])
+        self.assertEqual(result["serial"], 1, "True をシリアルとして数えている")
+        self.assertEqual(result["text"], 1)
+
     def test_year_source_diagnosis_finds_the_year_column(self):
         """読めない日付の年が、隣の列から取れるかを数える。（CSI-014）
 
