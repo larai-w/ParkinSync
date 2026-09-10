@@ -442,6 +442,83 @@ def diagnose_year_source(rows, date_col=_DATE_COL, start_row=2):
     }
 
 
+def diagnose_date_cell_types(rows, date_col=_DATE_COL, start_row=2):
+    """B列が**日付型か文字列か**を数える。（CSI-014・2026-09-10）
+
+    **なぜ要るか**
+
+    Master の日付は `FORMATTED_VALUE` で読んでいる。これは**セルに表示されて
+    いる文字列**を返すので、同じ日付でもセルの書式次第で別の文字列になる。
+    `unparsed_shapes` に8種類も出ていたのはそのため:
+
+        99A99A: 32 (8月26日) / 99A9A: 12 (8月5日) / 99/99 AA: 11 (08/26 月)
+        999: 9 / 9/9: 9 / 99/99: 8 / 99999: 5 / 9/9 (*): 4
+
+    `UNFORMATTED_VALUE` で読めば、**日付型のセルはシリアル値（数値）で返る。**
+    書式に依存しない。8種類のパーサを書く代わりに、読み方を変えれば済む。
+
+    ⚠️ **ただし切り替える前に数える。** セルが日付型でなく**テキスト**なら
+    シリアルにならず文字列のまま返る。`unparsed_charset` に `±` `%` `#` が
+    あった＝日付でない値も混ざっている。**混在なら二段構えが要る。**
+
+    **数えずに切り替えると、いま読めている行が読めなくなる。**
+    2026-09-02 にサンプル3件から全体の形を決めて9日止まったのと同じ形を繰り返さない。
+
+    Returns:
+      serial      シリアル値（数値）で返った件数 ＝ 日付型のセル
+      text        文字列で返った件数
+      blank       空
+      serial_span シリアルが表す日付の最初と最後（人が読める形）
+      text_shapes 文字列で返った値の**形**ごとの件数（多い順・上位8件）
+    """
+    serial = text = blank = 0
+    serial_values = []
+    shapes = {}
+    for row in rows:
+        value = row[date_col] if len(row) > date_col else ""
+        if value is None or (isinstance(value, str) and not value.strip()):
+            blank += 1
+            continue
+        if isinstance(value, bool):          # bool は int の派生。日付ではない
+            text += 1
+            continue
+        if isinstance(value, (int, float)):
+            serial += 1
+            serial_values.append(value)
+            continue
+        text += 1
+        shape = _shape_of(str(value))
+        shapes[shape] = shapes.get(shape, 0) + 1
+
+    span = None
+    if serial_values:
+        # Sheets のシリアルは 1899-12-30 起点
+        epoch = datetime.date(1899, 12, 30)
+        lo = epoch + datetime.timedelta(days=int(min(serial_values)))
+        hi = epoch + datetime.timedelta(days=int(max(serial_values)))
+        span = [str(lo), str(hi)]
+
+    top = sorted(shapes.items(), key=lambda kv: (-kv[1], kv[0]))[:8]
+    return {
+        "serial": serial,
+        "text": text,
+        "blank": blank,
+        "serial_span": span,
+        "text_shapes": dict(top),
+    }
+
+
+def fetch_date_cell_types(service, spreadsheet_id):
+    """A2:B を **UNFORMATTED_VALUE** で1回読んで数える。**本業とは別。**"""
+    rows = service.spreadsheets().values().get(
+        spreadsheetId=spreadsheet_id,
+        range=f"{_sheet_ref(MASTER_SHEET)}!A2:B",
+        valueRenderOption="UNFORMATTED_VALUE",
+        fields="values",
+    ).execute().get("values", [])
+    return diagnose_date_cell_types(rows)
+
+
 def fetch_year_source_diagnosis(service, spreadsheet_id):
     """A..F を1回読んで診断する。**本業とは別に、失敗しても止めない。**"""
     rows = service.spreadsheets().values().get(
@@ -879,6 +956,14 @@ def lambda_handler(event, context):
                 f"master_dates={backfill.get('master_dates', 0)} "
                 f"master_date_range={json.dumps(backfill.get('master_date_range'), ensure_ascii=False)} "
                 f"unparsed_dates={backfill.get('unparsed_dates', 0)} "
+                # ⚠️ **形だけでは足りなかった。**（2026-09-10）
+                # `unparsed_shapes` の `99A99A` を見て「日本語の日付だろう」と
+                # 断定したが、`_shape_of` は非ASCIIを `#` にするので
+                # `8月26日` は `9#99#` になる。**`99A99A` は日本語ではありえない。**
+                # 形は分布を知るのに要るが、**実体は分からない。**
+                # 3件だけ（各20文字まで）実物を出す。中身は日付欄なので、
+                # `unparsed_samples` は既に収集済み。出していなかっただけ。
+                f"unparsed_samples={json.dumps(backfill.get('unparsed_samples', []), ensure_ascii=False)} "
                 f"missing_range={json.dumps(backfill.get('missing_range'), ensure_ascii=False)} "
                 f"coverage={json.dumps(backfill.get('coverage', {}), ensure_ascii=False)}"
             )
@@ -891,6 +976,11 @@ def lambda_handler(event, context):
                     print(f"Year source diagnosis: {json.dumps(diag, ensure_ascii=False)}")
                 except Exception as exc:      # noqa: BLE001 - 診断は本業を止めない
                     print(f"Year source diagnosis skipped: {exc}")
+                try:
+                    cells = fetch_date_cell_types(service, spreadsheet_id)
+                    print(f"Date cell types: {json.dumps(cells, ensure_ascii=False)}")
+                except Exception as exc:      # noqa: BLE001 - 診断は本業を止めない
+                    print(f"Date cell types skipped: {exc}")
         return {
             "statusCode": 200,
             "body": json.dumps({
