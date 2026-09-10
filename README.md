@@ -6,6 +6,12 @@ Caregiver observations written on structured paper forms are manually transcribe
 
 **Status:** In development (v1.3.0)
 
+### Open-source collaboration
+
+- **Home Assistant** — **Merged** PR: [Accessible names for analytics consent switches](https://github.com/home-assistant/frontend/pull/54083)
+- **Microduck** — **In review** PR: [Fresh camera snapshots through robotctl and console HTTP](https://github.com/pollen-robotics/microduck/pull/241)
+- **stack-chan** — **In review** PR: [Deterministic sample sync for gallery output](https://github.com/stack-chan/stack-chan/pull/702)
+
 [Contributing](CONTRIBUTING.md) · [Security policy](SECURITY.md) · [Changelog](CHANGELOG.md)
 
 [![CI](https://github.com/larai-w/ParkinSync/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/larai-w/ParkinSync/actions/workflows/ci.yml?query=branch%3Amain)
