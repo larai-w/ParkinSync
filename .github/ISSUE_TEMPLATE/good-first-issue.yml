@@ -1,0 +1,34 @@
+name: Good first issue
+description: Small, low-risk contribution suitable for first-time contributors.
+title: "[Good first] "
+labels:
+  - good first issue
+  - help wanted
+body:
+  - type: markdown
+    attributes:
+      value: |
+        This template is for small, reviewable starter tasks.
+        Keep comments focused on public-safe copy and reproducible changes.
+  - type: textarea
+    id: summary
+    attributes:
+      label: Task summary
+      description: What should be changed and what value it provides.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      value: |
+        - [ ] Scope is narrowly defined
+        - [ ] Verification evidence or checks are included
+        - [ ] Public boundary rules are respected
+    validations:
+      required: true
+  - type: input
+    id: estimate
+    attributes:
+      label: Estimated effort
+      placeholder: 30m

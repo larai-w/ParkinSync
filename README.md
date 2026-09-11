@@ -14,6 +14,9 @@ Caregiver observations written on structured paper forms are manually transcribe
 
 [Contributing](CONTRIBUTING.md) · [Security policy](SECURITY.md) · [Changelog](CHANGELOG.md)
 
+- Quick start for first contributions: open an issue with [Good first issue](https://github.com/larai-w/ParkinSync/issues/new?template=good-first-issue.yml).
+- For code changes, open a pull request from [Compare changes](https://github.com/larai-w/ParkinSync/compare).
+
 [![CI](https://github.com/larai-w/ParkinSync/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/larai-w/ParkinSync/actions/workflows/ci.yml?query=branch%3Amain)
 [![Security baseline](https://github.com/larai-w/ParkinSync/actions/workflows/security-baseline.yml/badge.svg?branch=main)](https://github.com/larai-w/ParkinSync/actions/workflows/security-baseline.yml?query=branch%3Amain)
 
