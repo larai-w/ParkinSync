@@ -221,8 +221,10 @@ tests/test_fhir_jpcore.py           — JP Core profile overlay, written-guidanc
 tests/test_readme_links.py          — reviewer-path and repository-relative link checks
 ```
 
-Run tests: `PYTHONPATH=src python -m unittest discover -s tests -v` (requires
-`pip install -r requirements.txt -r requirements-fhir.txt`)
+Run tests: `python scripts/run_local_tests.py` (requires
+`pip install -r requirements.txt -r requirements-fhir.txt`). The script supplies
+the same `src` import path used by CI and uses only local synthetic fixtures and
+mocked services.
 
 ---
 
