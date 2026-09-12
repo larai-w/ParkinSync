@@ -9,11 +9,24 @@ supports record processing and exploratory analysis; it does not provide diagnos
 
 To ingest clinical bedside records into the active analytics pipeline, follow these structured steps:
 
-1. **Manual Transcription:** Transcribe handwritten bedside observations into the standardized grid template (see `design/` folder) to ensure high baseline data legibility.
-2. **Scan to PDF:** Utilize a smartphone scanning application to convert the structured paper log into a high-contrast, clean PDF document.
-3. **S3 Upload:** Log into the AWS Console (or authorized edge gateway) and upload the finalized PDF directly into the `incoming/` folder of the designated **Amazon S3 ingestion bucket**.
-4. **Trigger Verification:** The upload invokes the `ParkinSync_OCR_Handler` Lambda function. Confirm
-   successful processing in the CloudWatch log; do not rely on a fixed latency assumption.
+1. **Manual Transcription:** Transcribe handwritten caregiver observations into the standardized grid template (see `design/` folder) to ensure baseline legibility. Keep the source paper available until the imported row has been reviewed.
+2. **Scan to PDF:** Use a smartphone scanning application to make a high-contrast, readable **one-page** PDF with one table. The current synchronous OCR path cannot process a multi-page PDF.
+3. **Pre-upload check:** Confirm that collection, access, retention, and consent authority have been approved for this record. Do not attach unrelated notes or copy a source record into GitHub, a test fixture, or a support message.
+4. **S3 Upload:** Log into the AWS Console (or authorized edge gateway) and upload the checked PDF directly into the `incoming/` folder of the designated **Amazon S3 ingestion bucket**.
+5. **Trigger Verification:** The upload invokes the `ParkinSync_OCR_Handler` Lambda function. Uploading a file only starts processing; it does not prove that rows were written. Check the returned state or CloudWatch log before treating a record as available for review.
+
+### Check the processing state
+
+| State | What it means | Next action |
+| --- | --- | --- |
+| `processed` | Rows were written and the source object was marked processed. | Review the imported rows in the Master sheet against the source paper. |
+| `processed_tagging_warning` | Rows may have been written, but the object could not be marked processed. A duplicate event could create duplicate rows. | Do **not** upload the same file again. Resolve the tagging warning and check the Master sheet before any retry. |
+| `already_processed` | The object was already marked processed; no duplicate rows were added by this event. | No re-upload is needed. Review the existing Master rows if confirmation is required. |
+| `quarantined` | The PDF did not contain a readable table and was copied to `review/`. No successful ingestion is indicated. | Inspect the scan, correct it, and upload a new readable one-page file. |
+| `quarantined_permanent_failure` | The file has a format or document problem that retrying unchanged will not fix. It was copied to `review/`. | Follow the quarantine notice, correct the file (for example, split a multi-page PDF), then upload the corrected file. |
+| Unexpected error | A temporary service failure may be retried by Lambda; the file is also sent to the review path for inspection. | Do not manually re-upload while the retry outcome is unknown. Check the error and quarantine notification first. |
+
+Reviewing an imported row means checking the date, transcription, and any flagged fields against the source paper. It does not turn an observation into a diagnosis or treatment recommendation.
 
 ---
 
