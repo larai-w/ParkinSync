@@ -14,6 +14,8 @@ pandas
 google-api-python-client
 google-auth
 google-auth-httplib2
+# Security floor for the transitive TLS/crypto dependency.
+cryptography>=48.0.1
 
 # =========================================================
 # Analytics Layer (Amazon SageMaker Integration & Modeling)
