@@ -14,5 +14,9 @@ updates:
       # together only as an explicit compatibility migration.
       - dependency-name: "fhir.resources"
         update-types: ["version-update:semver-major"]
+      # 6.5.0 is a minor release but already models FHIR 4.3.0 (R4B), so the
+      # export test rejects it (PR #56). requirements-fhir.txt pins 6.4.0 on purpose.
+      - dependency-name: "fhir.resources"
+        versions: [">=6.5.0"]
       - dependency-name: "pydantic"
         update-types: ["version-update:semver-major"]
