@@ -27,10 +27,49 @@ jobs:
           fetch-depth: 0
       - name: Check public repository boundary
         run: python3 scripts/check_public_repo.py --tracked
-      - name: Run gitleaks
-        uses: gitleaks/gitleaks-action@f586c14365d4643c6aa59d472ae6e984bf47bb34 # v2.3.8
+      # gitleaks-action は使わない。**走査範囲を自分で決めてしまうため。**
+      # 2026-09-17 実測: このジョブは Full-history secret scan と名乗り
+      # fetch-depth: 0 で全履歴を取っていたが、アクションが内部で
+      # --log-opts=--no-merges --first-parent <sha>^..<sha> を付けるので、
+      # 実際に走っていたのは 1コミット（149〜5,675バイト）だけだった。
+      # 過去に紛れ込んだ秘密は、この検査では永久に見つからない。
+      # → veai-private CSI-036 / risk-register SEC-05
+      - name: Install gitleaks (pinned + checksum verified)
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_VERSION: 8.30.1
+          GITLEAKS_SHA256: 551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb
+        run: |
+          set -euo pipefail
+          curl -sSfL -o /tmp/gitleaks.tar.gz \
+            "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          echo "${GITLEAKS_SHA256}  /tmp/gitleaks.tar.gz" | sha256sum -c -
+          tar -xzf /tmp/gitleaks.tar.gz -C /tmp gitleaks
+          /tmp/gitleaks version
+
+      - name: Scan the whole history
+        run: |
+          set -euo pipefail
+          # --log-opts を渡さない = 既定で全履歴を歩く
+          /tmp/gitleaks git . --redact -v --exit-code 1 \
+            --report-format sarif --report-path gitleaks.sarif 2>&1 | tee gitleaks.log
+
+      # **緑を「見た証拠」にしない。** 走査コミット数が履歴に見合うかを機械で確かめる。
+      # 実測レンジ（2026-09-17・VEAI 10リポジトリ）は HEAD 比 82〜181%。
+      # 壊れていた状態は 0.45%。しきい値 50% で確実に落ちる。
+      - name: Verify the scan actually covered the history
+        if: always()
+        run: |
+          set -euo pipefail
+          expected=$(git rev-list --count HEAD)
+          scanned=$(grep -oE '[0-9]+ commits scanned' gitleaks.log | grep -oE '^[0-9]+' | head -1 || echo 0)
+          floor=$(( expected / 2 ))
+          [ "$floor" -lt 2 ] && floor=2
+          echo "history=${expected} scanned=${scanned} floor=${floor}"
+          if [ "$scanned" -lt "$floor" ]; then
+            echo "::error::全履歴を走査していない（${scanned}/${expected} コミット）。ジョブ名どおりに動いていないので落とす。"
+            exit 1
+          fi
+          echo "✅ 全履歴を走査した（${scanned} コミット）"
 
   dependency-audit:
     name: Python dependency audit
