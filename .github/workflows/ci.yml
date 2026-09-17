@@ -118,8 +118,9 @@ jobs:
         run: python -m unittest discover -s tests -v
 
   care-event-integration-poc:
-    # BEN-001: GutPacer -> care-event-v1 -> ParkinSync 連携契約を合成データで守る。
-    # 依存ゼロ・合成データのみ（本番データ/個人情報は使わない）。
+    # BEN-001: hold the GutPacer -> care-event-v1 -> ParkinSync integration
+    # contract with synthetic data. No dependencies, synthetic data only; no
+    # production data and no personal information.
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -144,13 +145,16 @@ jobs:
       - name: GutPacer -> care-event-v1 -> ParkinSync roundtrip (synthetic)
         run: python3 poc/gutpacer-parkinsync/test_roundtrip.py
 
-      # Medication Promise は正本を丸写しせず「服薬だけの狭い版」を持っている。
-      # 消費側から正本で検証し、狭めたつもりが外れていないかを毎回測る。
-      # あわせて 2 source を混ぜた日次行（BEN-001 の統合そのもの）を固定する。
+      # Medication Promise does not copy the canonical schema; it keeps a
+      # narrower medication-only version. Validate it from the consumer side
+      # against the canonical one, so a narrowing that drifted is caught every
+      # time. This also pins the daily row that mixes two sources, which is the
+      # BEN-001 integration itself.
       - name: Medication Promise -> care-event-v1 -> ParkinSync (synthetic)
         run: python3 poc/gutpacer-parkinsync/test_medication_roundtrip.py
 
-      # BEN-001 §7: 同意撤回時の削除と、その検証(再exportして不在をassert)が
-      # 壊れていないことを毎回確かめる。削除はfail-closedなので実行しても何も消えない。
+      # BEN-001 §7: check that deletion on consent withdrawal, and its
+      # verification (re-export and assert absence), still work. The deletion is
+      # fail-closed, so running this removes nothing.
       - name: Withdrawal -> deletion -> verification (synthetic)
         run: python3 poc/gutpacer-parkinsync/test_withdraw.py
