@@ -27,13 +27,23 @@ jobs:
           fetch-depth: 0
       - name: Check public repository boundary
         run: python3 scripts/check_public_repo.py --tracked
-      # gitleaks-action は使わない。**走査範囲を自分で決めてしまうため。**
-      # 2026-09-17 実測: このジョブは Full-history secret scan と名乗り
-      # fetch-depth: 0 で全履歴を取っていたが、アクションが内部で
-      # --log-opts=--no-merges --first-parent <sha>^..<sha> を付けるので、
-      # 実際に走っていたのは 1コミット（149〜5,675バイト）だけだった。
-      # 過去に紛れ込んだ秘密は、この検査では永久に見つからない。
-      # → veai-private CSI-036 / risk-register SEC-05
+      # gitleaks-action is not used here: it decides the scan range itself.
+      #
+      # Measured 2026-09-17: this job was named "Full-history secret scan" and
+      # checked out with fetch-depth: 0, but the action adds
+      # --log-opts=--no-merges --first-parent <sha>^..<sha>, so on pull_request
+      # and push it scanned a single commit (149-5,675 bytes).
+      #
+      # Correction (same day): an earlier version of this comment claimed the full
+      # history was never scanned and that past secrets could never be found. That
+      # was wrong. The action only narrows the range on push and pull_request; on
+      # schedule it passes no --log-opts and scans the whole history (measured:
+      # 183 commits / 1.63 MB). The real problems are that the job name did not
+      # match what it did per PR, and that a change merged in a PR was not looked
+      # at from a full-history angle until that week's cron run.
+      #
+      # gitleaks is called directly so the range is explicit. The version is
+      # pinned and the download is verified with SHA-256.
       - name: Install gitleaks (pinned + checksum verified)
         env:
           GITLEAKS_VERSION: 8.30.1
@@ -49,13 +59,14 @@ jobs:
       - name: Scan the whole history
         run: |
           set -euo pipefail
-          # --log-opts を渡さない = 既定で全履歴を歩く
+          # No --log-opts: gitleaks walks the whole history by default.
           /tmp/gitleaks git . --redact -v --exit-code 1 \
             --report-format sarif --report-path gitleaks.sarif 2>&1 | tee gitleaks.log
 
-      # **緑を「見た証拠」にしない。** 走査コミット数が履歴に見合うかを機械で確かめる。
-      # 実測レンジ（2026-09-17・VEAI 10リポジトリ）は HEAD 比 82〜181%。
-      # 壊れていた状態は 0.45%。しきい値 50% で確実に落ちる。
+      # A green check is not evidence that anything was looked at. Read the number
+      # of commits gitleaks reported and fail if it does not match the repository's
+      # history. Measured range across 10 VEAI repos (2026-09-17): 82-181% of HEAD.
+      # The broken state was 0.45% (1 of 222), so a 50% floor catches it.
       - name: Verify the scan actually covered the history
         if: always()
         run: |
@@ -66,10 +77,10 @@ jobs:
           [ "$floor" -lt 2 ] && floor=2
           echo "history=${expected} scanned=${scanned} floor=${floor}"
           if [ "$scanned" -lt "$floor" ]; then
-            echo "::error::全履歴を走査していない（${scanned}/${expected} コミット）。ジョブ名どおりに動いていないので落とす。"
+            echo "::error::Did not scan the whole history (${scanned} of ${expected} commits). The job is not doing what its name says."
             exit 1
           fi
-          echo "✅ 全履歴を走査した（${scanned} コミット）"
+          echo "Scanned the whole history (${scanned} commits)."
 
   dependency-audit:
     name: Python dependency audit
