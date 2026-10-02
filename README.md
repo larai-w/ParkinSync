@@ -50,6 +50,20 @@ arbitrary-server, terminology-server, patient-summary, identity integration, cli
 medical-device, treatment, security, performance, or regulatory conformance. No participant or
 production record is transmitted.
 
+The summary gate is not a semantic correctness check. To audit its boundaries with
+authored synthetic controls, run `python scripts/evaluate_summary_gate.py` after
+installing `requirements-fhir.txt`. It prints a deterministic JSON report and exits
+with status 1 when a candidate error is missed, a benign control is rejected, or an
+invalid source is not blocked. No model or network is used.
+
+The current 12-case audit finds 4 candidate errors detected, 3 missed (negation,
+unit substitution, and swapped temporal values), 2 invalid inputs blocked before
+summarization, and 3 unsupported narrative categories. Each candidate mutation has
+an accepted benign control. Source blocks and unsupported cases are reported
+separately from detections. These English synthetic examples are not a clinical
+benchmark or evidence of Japanese-language coverage; accepted summaries still
+require human review and cannot be shared automatically.
+
 The repository currently validates explicit synthetic ParkinSync records. It does not ingest GutPacer
 or Medication Promise production exports, connect to a clinical EHR, or claim a live cross-product
 FHIR integration. These boundaries keep the public demonstration reproducible and prevent
