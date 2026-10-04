@@ -15,6 +15,7 @@ experiment could compare.
 from __future__ import annotations
 
 import json
+from datetime import datetime
 from decimal import Decimal
 from typing import Any, Callable
 
@@ -71,8 +72,21 @@ def _to_markdown_table(facts: list[dict[str, Any]]) -> str:
     return "\n".join(lines) + "\n"
 
 
+def _instant(text: str) -> datetime:
+    """Parse an effective time as an absolute instant.
+
+    Sorting the strings would put ``02:00+00:00`` before ``07:00+09:00`` although
+    the second is nine hours earlier. A time without an offset cannot be placed
+    on that line at all, so it is rejected rather than guessed.
+    """
+    moment = datetime.fromisoformat(text)
+    if moment.tzinfo is None:
+        raise ValueError(f"effective_time has no UTC offset: {text}")
+    return moment
+
+
 def _to_timeline(facts: list[dict[str, Any]]) -> str:
-    rows = sorted((_row(f) for f in facts), key=lambda r: (r["time"], r["id"]))
+    rows = sorted((_row(f) for f in facts), key=lambda r: (_instant(r["time"]), r["id"]))
     return "".join(
         f"- {r['time']} [{r['id']}] {r['kind']}: {r['what']}, "
         f"{r['status']}, {r['amount']} (source {r['source']})\n"
@@ -94,20 +108,46 @@ def serialize_facts(fact_bundle: dict[str, Any], strategy: str) -> str:
     return _RENDERERS[strategy](list(fact_bundle.get("facts", [])))
 
 
+def _records(text: str, fact_ids: list[str]) -> dict[str, str]:
+    """Split a rendering into the part that belongs to each fact ID.
+
+    A JSON rendering is split by its objects; the table and the timeline put one
+    fact on one line. A number only counts for a fact when it is in that fact's
+    own record, so another fact carrying the same number cannot hide a loss.
+    """
+    try:
+        parsed = json.loads(text)
+    except ValueError:
+        parsed = None
+    records: dict[str, list[str]] = {}
+    if isinstance(parsed, list):
+        for item in parsed:
+            if isinstance(item, dict) and isinstance(item.get("id"), str):
+                records.setdefault(item["id"], []).append(json.dumps(item))
+        return {key: "\n".join(parts) for key, parts in records.items()}
+    for line in text.splitlines():
+        for fact_id in fact_ids:
+            if fact_id in line:
+                records.setdefault(fact_id, []).append(line)
+    return {key: "\n".join(parts) for key, parts in records.items()}
+
+
 def check_lossless(fact_bundle: dict[str, Any], text: str) -> dict[str, list[str]]:
     """Report fact IDs and numeric source values that a rendering dropped.
 
-    Numeric values are checked per fact against the numbers present anywhere in
-    the text, matching how summaries are checked in ``fhir_summary``.
+    Each fact's numbers must appear in that fact's own record (its JSON object,
+    or the lines that carry its ID). Checking against every number anywhere in
+    the text would let two facts with the same dose cover for each other.
     """
-    numbers: set[Decimal] = set()
-    for match in NUMBER_PATTERN.findall(text):
-        numbers.add(Decimal(match))
+    facts = list(fact_bundle.get("facts", []))
+    records = _records(text, [fact["id"] for fact in facts])
     missing_ids: list[str] = []
     missing_values: list[str] = []
-    for fact in fact_bundle.get("facts", []):
+    for fact in facts:
         if fact["id"] not in text:
             missing_ids.append(fact["id"])
+        record = records.get(fact["id"], "")
+        numbers = {Decimal(match) for match in NUMBER_PATTERN.findall(record)}
         for value in sorted(_numeric_values(fact) - numbers):
             missing_values.append(f"{fact['id']}={value}")
     return {"missing_ids": missing_ids, "missing_values": missing_values}
