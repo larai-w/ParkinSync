@@ -310,15 +310,17 @@ def index_master_dates(date_rows, start_row=2):
         parsed = _parse_date(text, year=_year_from_cell(row[0] if row else ""))
         if parsed is None:
             unparsed += 1
+            # ⚠️ **中身ではなく形を残す。**（2026-10-05）B列には日付でない値も
+            # 入っていて、介護記録のメモが混ざりうる。ログへ出るのでここで形にする。
             if len(samples) < 3:
-                samples.append(text[:20])
+                samples.append(_shape_of(text))
             continue
         by_date.setdefault(parsed, []).append(row_number)
     # **読めた日付が「いつのものか」を返す。**（CSI-014・2026-09-09）
     # 件数だけでは、最近の日が「読めていない」のか「行が無い」のか分からない。
     # 範囲が分かれば、欠けている日が範囲の内側か外側かで打ち手が決まる。
     span = [str(min(by_date)), str(max(by_date))] if by_date else None
-    return {"by_date": by_date, "unparsed": unparsed, "samples": samples,
+    return {"by_date": by_date, "unparsed": unparsed, "sample_shapes": samples,
             "date_range": span}
 
 
@@ -621,7 +623,7 @@ def backfill_missing_aggregates(service, spreadsheet_id, telemetry_rows, today,
         "master_dates": len(master["by_date"]),
         "master_date_range": master["date_range"],
         "unparsed_dates": master["unparsed"],
-        "unparsed_samples": master["samples"],
+        "unparsed_sample_shapes": master["sample_shapes"],
     }
 
     updates = []
@@ -961,9 +963,11 @@ def lambda_handler(event, context):
                 # 断定したが、`_shape_of` は非ASCIIを `#` にするので
                 # `8月26日` は `9#99#` になる。**`99A99A` は日本語ではありえない。**
                 # 形は分布を知るのに要るが、**実体は分からない。**
-                # 3件だけ（各20文字まで）実物を出す。中身は日付欄なので、
-                # `unparsed_samples` は既に収集済み。出していなかっただけ。
-                f"unparsed_samples={json.dumps(backfill.get('unparsed_samples', []), ensure_ascii=False)} "
+                # ⚠️ 2026-09-10 に3件の実物（各20文字）を出すようにしたが、
+                # 2026-10-05 にやめた。日付欄にもメモが書かれうるので、
+                # 実物を出すと介護記録の先頭がログに残る（Qwen レビュー #1）。
+                # 実体を見たいときはシートを人が開く。ログには形だけ。
+                f"unparsed_sample_shapes={json.dumps(backfill.get('unparsed_sample_shapes', []), ensure_ascii=False)} "
                 f"missing_range={json.dumps(backfill.get('missing_range'), ensure_ascii=False)} "
                 f"coverage={json.dumps(backfill.get('coverage', {}), ensure_ascii=False)}"
             )

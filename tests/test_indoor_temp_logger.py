@@ -687,7 +687,27 @@ class TestBackfillMissingAggregates(unittest.TestCase):
         values_api.batchUpdate.assert_not_called()
         self.assertEqual(result["unparsed_dates"], 1)
         self.assertEqual(result["master_dates"], 1, "読めたのは 04-18 の1件だけ")
-        self.assertIn("9/9 (*)", result["unparsed_samples"])
+        self.assertIn("9/9 (*)", result["unparsed_sample_shapes"])
+
+    def test_unreadable_date_cell_text_never_leaves_the_function(self):
+        """**日付欄に書かれたメモを、結果にもログにも出さない。**（2026-10-05）
+
+        B列は日付欄だが、日付でない値（`±` `%` `#`）も入っている。
+        読めない値をそのまま返すと、ハンドラがそれを CloudWatch に出し、
+        介護記録の先頭がログに残る。返してよいのは**形**だけ。
+        """
+        note = "8/26 転倒 頭部打撲"
+        service, _ = self._service(
+            date_rows=[["", note], ["", "2026-04-18"]],
+            agg_rows=[[], []],
+        )
+        result = logger.backfill_missing_aggregates(
+            service, "sheet-id", self._telemetry("2026-04-19"), self.TODAY, days=5
+        )
+        dumped = json.dumps(result, ensure_ascii=False, default=str)
+        for fragment in ("転倒", "頭部", "打撲"):
+            self.assertNotIn(fragment, dumped, dumped)
+        self.assertEqual(result["unparsed_sample_shapes"], ["9/99 ## ####"])
 
     def test_japanese_date_row_is_now_matched(self):
         """**日本語の日付の行に、集計が入るようになったことを固定する。**（CSI-014・2026-09-10）
@@ -1158,7 +1178,7 @@ class TestBackfillMissingAggregates(unittest.TestCase):
             "dates": [],
             "master_dates": 0,
             "unparsed_dates": 55,
-            "unparsed_samples": ["2026年4月19日"],
+            "unparsed_sample_shapes": ["9999#9#99#"],
         }
         mock_sample_time.return_value = datetime.datetime(
             2026, 4, 20, 9, 0, tzinfo=logger.JST
@@ -1193,6 +1213,8 @@ class TestBackfillMissingAggregates(unittest.TestCase):
         self.assertIn("aggregate=master-date-missing", printed, printed)
         self.assertIn("Backfill filled nothing", printed, printed)
         self.assertIn("unparsed_dates=55", printed, printed)
+        self.assertIn('unparsed_sample_shapes=["9999#9#99#"]', printed, printed)
+        self.assertNotIn("unparsed_samples=", printed, "セルの実物を出す古いキーが残っている")
 
     def test_successful_call_logs_its_duration(self):
         """成功した呼び出しの所要時間を残す。
