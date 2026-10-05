@@ -355,7 +355,7 @@ deploy.sh                      # Lambda packaging and deployment script
 - The OCR and indoor-telemetry handlers retrieve service credentials through AWS Secrets Manager. This source review does not verify all credentials or the live configuration of every deployment.
 - The ingestion contract excludes personally identifiable information; each approved collection must
   enforce its reviewed data map before records enter the pipeline.
-- IAM roles follow the principle of least privilege, scoped to required S3 buckets and Sheets targets.
+- Deployment IAM policies must be reviewed for least privilege and the required S3/Sheets targets. This source review does not verify live role permissions.
 - Capstone source documents and non-anonymized PDFs are intentionally excluded from the public repository. CI blocks known report filenames, office-source documents, and common secret patterns.
 - Participant-derived data is not permitted in Git. See [Data Governance](docs/DATA_GOVERNANCE.md) for
   consent, withdrawal, deletion, retention, access, publication, and re-identification controls.

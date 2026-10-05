@@ -26,6 +26,11 @@ class EvidenceCopyBoundaryTests(unittest.TestCase):
         self.assertFalse("matches live Lambda deployments" in self.readme, "Unverified live equivalence guarantee")
         self.assertIn("verified per function and deployment version", self.readme)
 
+    def test_live_iam_permissions_are_not_inferred_from_source(self):
+        self.assertFalse("IAM roles follow the principle of least privilege" in self.readme,
+                         "Live IAM scope was not verified by this source review")
+        self.assertIn("does not verify live role permissions", self.readme)
+
 
 if __name__ == "__main__":
     unittest.main()
