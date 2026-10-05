@@ -41,21 +41,21 @@
 		"en": {
 			"name": "ParkinSync",
 			"tagline": "From caregiver paper logs to analysis-ready evidence",
-			"description": "A private-household research prototype that combines human-verified care-log extraction with weather and indoor-environment context for exploratory analysis. It is not a diagnostic tool or a public care service."
+			"description": "A private-household research prototype that combines OCR care-log extraction requiring post-import operator review with weather and indoor-environment context for exploratory analysis. It is not a diagnostic tool or a public care service."
 		},
 		"ja": {
 			"name": "ParkinSync",
 			"kana": "パーキンシンク",
 			"tagline": "紙のケア記録を、分析できるデータへ",
-			"description": "介護者の紙記録を人が確認し、気象・室内環境データと組み合わせる単一世帯向け研究プロトタイプです。診断や一般公開のケアサービスではありません。"
+			"description": "介護者の紙記録をOCRで取り込み、その後に人が確認する運用で、気象・室内環境データと組み合わせる単一世帯向け研究プロトタイプです。診断や一般公開のケアサービスではありません。"
 		}
 	},
 	"capabilities": [
 		{
 			"id": "human-reviewed-ocr",
 			"label": {
-				"en": "Human-reviewed OCR pipeline for structured paper logs",
-				"ja": "構造化された紙記録の人手確認付きOCRパイプライン"
+				"en": "OCR import with post-import operator review for structured paper logs",
+				"ja": "構造化された紙記録のOCR取り込みと取り込み後の人手確認"
 			},
 			"status": "implemented",
 			"evidenceUrls": [

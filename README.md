@@ -2,7 +2,7 @@
 
 **A serverless data pipeline that bridges paper-based caregiver logs with cloud analytics for Parkinson's Disease care.**
 
-Caregiver observations written on structured paper forms are manually transcribed, then ingested into AWS, enriched with weather and indoor temperature telemetry, and normalized into a 25-column schema for correlation analysis in Amazon SageMaker.
+Caregiver observations written on structured paper forms are extracted by AWS Textract, enriched with weather and indoor temperature telemetry, and normalized into a 25-column schema for exploratory analysis. The current OCR handler automatically appends extracted rows to the Master sheet; an operator must review those imported rows before treating them as verified observations.
 
 **Status:** In development (v1.3.0)
 
@@ -189,7 +189,7 @@ Secrets: AWS Secrets Manager (Google SA JSON, SwitchBot key, Weather API key)
 IaC: deploy.sh (bash) — packages Lambda zips and calls aws lambda update-function-code
 ```
 
-The OCR step is Human-in-the-Loop: Textract validates form structure but does not auto-fill fields. A human operator verifies the transcription before cloud ingestion, reducing garbage-in data.
+The current OCR handler extracts table cells and writes the aligned rows to Google Sheets. Its next-action guidance is to review the imported rows in the Master sheet. It does not enforce a human approval gate before that write. Human review remains an operator responsibility; a successful import is not proof that the observations are correct or reviewed.
 
 ---
 
