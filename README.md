@@ -161,9 +161,10 @@ Caregiver paper log
          ├─ S3 event trigger
          │      ▼
          │  Lambda: ParkinSync_OCR_Handler  (Python 3.12)
-         │    ├─ Amazon Textract  (form key-value extraction)
+         │    ├─ Amazon Textract  (table-cell extraction)
          │    ├─ Visual Crossing Weather API  (historical weather by log date)
-         │    └─ Google Sheets API v4  (append verified row to master ledger)
+         │    └─ Google Sheets API v4  (append extracted rows to master ledger)
+         │         └─ operator review after import (not enforced by handler)
          │
          └─ [independent, schedule-driven]
                 ▼

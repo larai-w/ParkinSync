@@ -7,6 +7,14 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class OcrCopyBoundaryTests(unittest.TestCase):
+    def test_architecture_places_operator_review_after_automatic_append(self):
+        readme = (ROOT / "README.md").read_text()
+        architecture = readme.split("## Architecture\n", 1)[1].split("```", 2)[1]
+        self.assertNotIn("append verified row", architecture)
+        append = architecture.index("append extracted rows to master ledger")
+        review = architecture.index("operator review after import (not enforced by handler)")
+        self.assertLess(append, review)
+
     def test_readme_does_not_claim_a_pre_ingestion_human_gate(self):
         readme = (ROOT / "README.md").read_text()
         for claim in ("does not auto-fill fields",
