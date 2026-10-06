@@ -178,7 +178,7 @@ Caregiver paper log
                    U:X only when one matching master row exists
 
 Master ledger (Google Sheets, 25-column schema)
-  ├─ Amazon SageMaker  (exploratory Pearson r and lag analyses)
+  ├─ Local Python EDA (deterministic synthetic fixtures; cloud execution unverified)
   └─ Offline FHIR R4 adapter (synthetic demo only)
        ├─ Patient / MedicationStatement / Observation / CarePlan transaction Bundle
        ├─ deterministic facts, data-quality gate, and grounded offline summary
@@ -186,7 +186,7 @@ Master ledger (Google Sheets, 25-column schema)
        ├─ ephemeral HAPI transaction/read-back integration test (synthetic only)
        └─ shared jurisdiction overlay: NZ Base 3.1.0 + JP Core 1.2.0
 
-Secrets: AWS Secrets Manager (Google SA JSON, SwitchBot key, Weather API key)
+Secrets: Secrets Manager retrieval in OCR/telemetry source (live configuration unverified)
 IaC: deploy.sh (bash) — packages Lambda zips and calls aws lambda update-function-code
 ```
 
@@ -205,9 +205,11 @@ The current OCR handler extracts table cells and writes the aligned rows to Goog
 | Aggregation | Python Lambda + Google Sheets API v4 |
 | IoT polling | SwitchBot Open API |
 | Weather enrichment | Visual Crossing Weather API |
-| Analytics | Amazon SageMaker, Python Pandas / NumPy / SciPy |
+| Analytics | Local Python EDA on deterministic synthetic fixtures |
 | Interoperability demo | HL7 FHIR R4.0.1, `fhir.resources` / Pydantic |
 | Deploy | `deploy.sh` (bash, `aws lambda update-function-code`) |
+
+The repository includes local exploratory analysis of deterministic synthetic fixtures. SageMaker execution and lag-analysis results are unverified; dependency declarations are not evidence of a cloud run.
 
 ---
 
@@ -350,10 +352,10 @@ deploy.sh                      # Lambda packaging and deployment script
 
 ## Security & Privacy
 
-- All API credentials (Google Service Account JSON, SwitchBot key, Visual Crossing key) are stored exclusively in AWS Secrets Manager — no hardcoded values in source.
+- The OCR and indoor-telemetry handlers retrieve service credentials through AWS Secrets Manager. This source review does not verify all credentials or the live configuration of every deployment.
 - The ingestion contract excludes personally identifiable information; each approved collection must
   enforce its reviewed data map before records enter the pipeline.
-- IAM roles follow the principle of least privilege, scoped to required S3 buckets and Sheets targets.
+- Deployment IAM policies must be reviewed for least privilege and the required S3/Sheets targets. This source review does not verify live role permissions.
 - Capstone source documents and non-anonymized PDFs are intentionally excluded from the public repository. CI blocks known report filenames, office-source documents, and common secret patterns.
 - Participant-derived data is not permitted in Git. See [Data Governance](docs/DATA_GOVERNANCE.md) for
   consent, withdrawal, deletion, retention, access, publication, and re-identification controls.
@@ -362,7 +364,7 @@ deploy.sh                      # Lambda packaging and deployment script
 
 ## Branching
 
-- `main`: stable, matches live Lambda deployments
+- `main`: maintained source; live code equivalence must be verified per function and deployment version.
 - `development`: active iteration
 
 ---
