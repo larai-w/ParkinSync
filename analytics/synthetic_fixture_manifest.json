@@ -11,6 +11,7 @@
     "software tests",
     "exploratory-analysis demonstration"
   ],
+  "master_ledger_contract": "parkinsync-master-ledger/v1",
   "prohibited_use": [
     "clinical inference",
     "performance claims",

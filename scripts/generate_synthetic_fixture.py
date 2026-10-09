@@ -15,13 +15,17 @@ ROOT = Path(__file__).resolve().parents[1]
 SCHEMA_PATH = ROOT / "design" / "master_schema_template.csv"
 FIXTURE_PATH = ROOT / "analytics" / "synthetic_sample_data_v1.3.csv"
 MANIFEST_PATH = ROOT / "analytics" / "synthetic_fixture_manifest.json"
+from master_ledger_contract import CONTRACT_ID, validate_columns
+
 ROW_COUNT = 21
 START_DATE = date(2035, 1, 1)
 
 
 def read_schema() -> list[str]:
     with SCHEMA_PATH.open(newline="", encoding="utf-8") as source:
-        return next(csv.reader(source))
+        columns = next(csv.reader(source))
+    validate_columns(columns)
+    return columns
 
 
 def build_rows() -> list[dict[str, object]]:
@@ -79,6 +83,7 @@ def render_manifest() -> str:
     end_date = START_DATE + timedelta(days=ROW_COUNT - 1)
     manifest = {
         "classification": "synthetic",
+        "master_ledger_contract": CONTRACT_ID,
         "date_range": {
             "end": end_date.isoformat(),
             "start": START_DATE.isoformat(),
