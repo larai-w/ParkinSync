@@ -78,8 +78,10 @@ jobs:
 
       - name: Install dependencies
         run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt -r requirements-fhir.txt
+          python -m pip install pip==26.2.1
+          python -m pip install -r requirements.txt -r requirements-fhir.txt -c constraints-python312.txt
+          python -m pip check
+          python scripts/check_dependency_snapshot.py
 
       - name: Byte-compile Lambda sources
         run: python -m compileall src
