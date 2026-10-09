@@ -9,13 +9,18 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "scripts"))
+from master_ledger_contract import validate_columns
+
 CSV_PATH = ROOT / "analytics" / "synthetic_sample_data_v1.3.csv"
 SCHEMA_PATH = ROOT / "design" / "master_schema_template.csv"
 
 
 def expected_columns() -> list[str]:
     with SCHEMA_PATH.open(newline="", encoding="utf-8") as source:
-        return next(csv.reader(source))
+        columns = next(csv.reader(source))
+    validate_columns(columns)
+    return columns
 
 
 def load_fixture() -> tuple[list[str], list[dict[str, str]]]:

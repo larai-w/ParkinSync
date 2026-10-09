@@ -12,6 +12,8 @@ import sys
 from pathlib import Path
 
 
+from master_ledger_contract import validate_columns, validate_manifest
+
 FORBIDDEN_PATHS = {
     "docs/v1.3.0_Final_Report.pdf",
     "docs/v1.3.0_Presentation_Slides.pdf",
@@ -116,6 +118,13 @@ def validate_synthetic_fixture() -> list[str]:
         manifest = json.loads(SYNTHETIC_MANIFEST_PATH.read_text(encoding="utf-8"))
     except (csv.Error, json.JSONDecodeError, OSError, StopIteration) as error:
         return [f"cannot validate synthetic fixture: {error}"]
+
+    try:
+        validate_columns(expected_headers)
+        validate_columns(headers or [])
+        validate_manifest(manifest)
+    except ValueError as error:
+        failures.append(str(error))
 
     if headers != expected_headers:
         failures.append("synthetic fixture does not exactly match the public master schema")
