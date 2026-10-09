@@ -311,6 +311,9 @@ DEPLOY_TARGET=iot AWS_REGION=us-east-1 bash deploy.sh
 DRY_RUN=1 DEPLOY_TARGET=iot bash deploy.sh
 ```
 
+See [the dependency update procedure](docs/DEPENDENCIES.md) to reproduce the
+Linux Python 3.12 CI snapshot and review intentional dependency updates.
+
 ---
 
 ## Repository Layout

@@ -1,0 +1,38 @@
+# Application/FHIR CI dependency snapshot for Python 3.12.
+# Baseline: successful main CI run 37392300841 (2026-10-06).
+# Update intentionally, validate the complete snapshot, and review the diff.
+boto3==1.43.108
+botocore==1.43.108
+certifi==2026.7.22
+cffi==2.1.1
+charset-normalizer==3.5.2
+cryptography==50.0.2
+dnspython==2.8.0
+email-validator==2.3.0
+fhir-resources==6.4.0
+google-api-core==2.41.0
+google-api-python-client==2.201.0
+google-auth==2.60.0
+google-auth-httplib2==0.4.4
+googleapis-common-protos==1.75.5
+httplib2==0.32.0
+idna==3.20
+jmespath==1.1.0
+numpy==2.5.3
+opentelemetry-api==1.45.0
+pandas==3.0.6
+proto-plus==1.29.0
+protobuf==7.36.2
+pyasn1==0.6.4
+pyasn1-modules==0.4.2
+pycparser==3.0
+pydantic==1.10.26
+pyparsing==3.3.3
+python-dateutil==2.9.0.post0
+requests==2.34.2
+s3transfer==0.19.2
+scipy==1.18.1
+six==1.17.0
+typing-extensions==4.16.0
+uritemplate==4.2.0
+urllib3==2.8.0
