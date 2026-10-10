@@ -54,6 +54,21 @@ Bowel には `confirmed_none`（確認された無し）があるので「実測
 - バッチ変換のみ。常時同期・UI統合・ML解析は対象外（PoC後）。
 - validate.py は依存ゼロの最小版。本番は jsonschema 等へ置換可。
 
+## モビコール包数（Movi）の欠測
+
+`Movi` は観測された `movicol_taken` の `payload.doseSachets` の日次合計。
+全観測の包数が数値で分かる場合だけ合計し、1件でも不明・null・不正値があれば
+日次合計を `None`（空欄）にする。分かっている分だけを日次総量として出さない。
+数値の小数部分は保持し、文字列・真偽値・負数・非有限値を包数へ変換しない。
+
+GutPacerのruntime exportは服用枠を記録するが `doseSachets` を持たない。
+枠数を包数として補わず、包数不明を0にしない。このPoCの合成producerが
+包数を持つことは、runtime exportが同じ項目を持つ証拠ではない。
+この変換は本番Masterへの取込みや記録の重複排除を実装するものではない。
+
+回帰検査（repo rootから）:
+`python3 -m unittest discover -s tests -p test_poc_movicol_missingness.py -v`
+
 ## CI統合（済）
 ParkinSync `.github/workflows/ci.yml` に `care-event-integration-poc` ジョブとして統合済み。
 push/PR ごとにGutPacer repoのcanonical schemaをcheckoutし、JSONの整形、object key順、
