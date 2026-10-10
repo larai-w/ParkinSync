@@ -841,7 +841,7 @@ def _switchbot_deadline(context):
     return time.monotonic() + (remaining_ms() / 1000.0) - SHEETS_TIME_RESERVE_SECONDS
 
 
-def lambda_handler(event, context):
+def _process_event(event, context):
     """Log one indoor sample and refresh its local-day Master aggregate."""
     try:
         secrets_client = boto3.client("secretsmanager", region_name=REGION_NAME)
@@ -997,3 +997,72 @@ def lambda_handler(event, context):
     except Exception as error:
         print(f"Telemetry logging failed: {error}")
         raise
+
+
+_SUMMARY_AGGREGATES = frozenset({
+    'updated', 'master-date-missing', 'duplicate-master-date', 'no-valid-samples',
+})
+_SUMMARY_UUID = re.compile(
+    r'[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-'
+    r'[0-9a-fA-F]{4}-[0-9a-fA-F]{12}'
+)
+
+
+def _summary_uuid(value):
+    return value if isinstance(value, str) and _SUMMARY_UUID.fullmatch(value) else None
+
+
+def _emit_execution_summary(event, context, result=None, *, raised=False):
+    """Add bounded invocation metadata without copying telemetry or dates.
+
+    A valid EventBridge ID can link retries; manual or malformed IDs stay null.
+    Existing detailed logs are unchanged. Backfill count does not prove that
+    backfill finished, and a returned aggregate is not source-data freshness.
+    """
+    try:
+        body = result.get('body') if isinstance(result, dict) else None
+        fields = {}
+        if isinstance(body, str) and len(body) <= 2048 and not raised:
+            try:
+                parsed = json.loads(body)
+                if isinstance(parsed, dict):
+                    fields = parsed
+            except ValueError:
+                pass
+        aggregate = fields.get('aggregate')
+        if not isinstance(aggregate, str) or aggregate not in _SUMMARY_AGGREGATES:
+            aggregate = 'unknown'
+        sample = fields.get('sample')
+        if not isinstance(sample, str) or sample not in ('logged', 'duplicate'):
+            sample = 'unknown'
+        backfilled = fields.get('backfilled')
+        if type(backfilled) is not int or not 0 <= backfilled <= 2**53 - 1:
+            backfilled = None
+        print('[EXECUTION_SUMMARY] ' + json.dumps({
+            'schema_version': 1,
+            'handler': 'indoor',
+            'request_id': _summary_uuid(getattr(context, 'aws_request_id', None)),
+            'event_id': _summary_uuid(event.get('id')) if isinstance(event, dict) else None,
+            'execution_outcome': 'raised' if raised else 'returned',
+            'processing_status': aggregate,
+            'sample_status': sample,
+            'backfilled_count': backfilled,
+            'backfill_completion': 'UNVERIFIED',
+            'source_freshness': 'UNMEASURED',
+            'human_review': 'UNVERIFIED',
+        }, sort_keys=True, allow_nan=False))
+    except Exception:
+        # Summary output must not replace the processing result or exception.
+        # Do not log fallback exception text which may contain private data.
+        pass
+
+
+def lambda_handler(event, context):
+    """Run the existing logger and add a minimal invocation summary."""
+    try:
+        result = _process_event(event, context)
+    except Exception:
+        _emit_execution_summary(event, context, raised=True)
+        raise
+    _emit_execution_summary(event, context, result)
+    return result
