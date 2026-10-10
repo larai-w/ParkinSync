@@ -1095,7 +1095,7 @@ class TestBackfillMissingAggregates(unittest.TestCase):
         body = json.loads(result["body"])
         self.assertEqual(body["sample"], "logged")
         self.assertEqual(body["aggregate"], "updated")
-        self.assertEqual(body["backfilled"], 0)
+        self.assertIsNone(body["backfilled"])
 
         # **黙らせない。** 失敗したことはログに残す
         self.assertIn("Backfill skipped", printed, printed)
