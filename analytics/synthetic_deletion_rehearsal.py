@@ -14,6 +14,7 @@ only. This is a control rehearsal, not a real deletion.
 from __future__ import annotations
 
 import argparse
+from copy import deepcopy
 import json
 from datetime import date, timedelta
 from pathlib import Path
@@ -85,17 +86,23 @@ def verify_absence(events: list[dict], mapping: dict[str, str], subject: str) ->
 
 def rehearse(withdraw_subject: str = "synthetic-person-001") -> dict:
     events, mapping = build_store()
-    others = sorted({e["patientId"] for e in events if e["patientId"] != withdraw_subject})
-    others_before = {s: sum(1 for e in events if e["patientId"] == s) for s in others}
+    if withdraw_subject not in mapping or not any(e["patientId"] == withdraw_subject for e in events):
+        raise ValueError("Unknown synthetic subject")
+    # Snapshot contents before withdrawal, including nested payloads: counts
+    # cannot detect replacement or in-place changes to another subject's data.
+    other_events_before = deepcopy([e for e in events if e["patientId"] != withdraw_subject])
+    other_mapping_before = deepcopy({k: v for k, v in mapping.items() if k != withdraw_subject})
 
     remaining, new_mapping, removed = withdraw(events, mapping, withdraw_subject)
     problems = verify_absence(remaining, new_mapping, withdraw_subject)
 
-    # over-deletion guard: everyone else must be untouched
-    others_after = {s: sum(1 for e in remaining if e["patientId"] == s) for s in others}
-    over_deletion = {s: [others_before[s], others_after[s]] for s in others if others_before[s] != others_after[s]}
+    # Other subjects' events (including order) and mappings must be unchanged.
+    other_events_after = [e for e in remaining if e["patientId"] != withdraw_subject]
+    other_mapping_after = {k: v for k, v in new_mapping.items() if k != withdraw_subject}
+    over_deletion = (other_events_before != other_events_after or
+                     other_mapping_before != other_mapping_after)
     if over_deletion:
-        problems.append(f"over_deletion:{over_deletion}")
+        problems.append("other_subject_data_changed")
 
     passed = not problems
     return {
@@ -146,7 +153,11 @@ def main() -> int:
     if args.self_test:
         return self_test()
 
-    report = rehearse(args.subject)
+    try:
+        report = rehearse(args.subject)
+    except ValueError:
+        print("Deletion rehearsal rejected: unknown synthetic subject.")
+        return 3
     args.output_dir.mkdir(parents=True, exist_ok=True)
     (args.output_dir / "deletion-rehearsal.json").write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     print(json.dumps(report, ensure_ascii=False, sort_keys=True))
