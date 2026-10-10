@@ -130,11 +130,12 @@ deploy_function_code() {
     exit 1
   fi
 
+  local alias_error="$BUILD_ROOT/${function_name}-get-alias.stderr"
   if aws lambda get-alias \
     --region "$AWS_REGION" \
     --function-name "$function_name" \
     --name "$LAMBDA_ALIAS" \
-    >/dev/null 2>&1; then
+    >/dev/null 2>"$alias_error"; then
     aws lambda update-alias \
       --region "$AWS_REGION" \
       --function-name "$function_name" \
@@ -143,6 +144,14 @@ deploy_function_code() {
       --description "$RELEASE_DESCRIPTION" \
       >/dev/null
   else
+    local alias_status=$?
+    # Only a recognized GetAlias not-found response permits creation. Unknown
+    # formats, permissions, throttling and transport errors must stop here.
+    if ! grep -Eq '^(aws: \[ERROR\]: )?An error occurred \(ResourceNotFoundException\) when calling the GetAlias operation:' "$alias_error"; then
+      echo "Unable to determine alias $LAMBDA_ALIAS for $function_name; refusing alias changes" >&2
+      cat "$alias_error" >&2
+      return "$alias_status"
+    fi
     aws lambda create-alias \
       --region "$AWS_REGION" \
       --function-name "$function_name" \
