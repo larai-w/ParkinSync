@@ -963,7 +963,7 @@ def _process_event(event, context):
                 service, spreadsheet_id, telemetry_rows, sample_time.date()
             )
         except Exception as exc:          # noqa: BLE001 - 補修の失敗は本業を止めない
-            print(f"Backfill skipped: {exc}")
+            print("Backfill skipped: outcome unknown")
 
         print(
             f"{label}: sample={'duplicate' if duplicate else 'logged'} "
@@ -1001,12 +1001,12 @@ def _process_event(event, context):
                     diag = fetch_year_source_diagnosis(service, spreadsheet_id)
                     print(f"Year source diagnosis: {json.dumps(diag, ensure_ascii=False)}")
                 except Exception as exc:      # noqa: BLE001 - 診断は本業を止めない
-                    print(f"Year source diagnosis skipped: {exc}")
+                    print("Year source diagnosis skipped: details unavailable")
                 try:
                     cells = fetch_date_cell_types(service, spreadsheet_id)
                     print(f"Date cell types: {json.dumps(cells, ensure_ascii=False)}")
                 except Exception as exc:      # noqa: BLE001 - 診断は本業を止めない
-                    print(f"Date cell types skipped: {exc}")
+                    print("Date cell types skipped: details unavailable")
         return {
             "statusCode": 200,
             "body": json.dumps({
