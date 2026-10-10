@@ -208,8 +208,10 @@ def _quarantine_and_notify(s3, bucket, document, reason):
     """
     Copy a failed image to the review/ prefix and send an SNS notification so a
     human can inspect it. Non-fatal: errors here are logged but never re-raised.
-    SNS is only attempted when SNS_TOPIC_ARN is configured.
+    SNS is only attempted when SNS_TOPIC_ARN is configured. Return whether
+    the copy API completed; this does not prove notification delivery or review.
     """
+    copied = False
     try:
         dest_key = f"{_REVIEW_PREFIX}{document}"
         s3.copy_object(
@@ -217,6 +219,7 @@ def _quarantine_and_notify(s3, bucket, document, reason):
             CopySource={'Bucket': bucket, 'Key': document},
             Key=dest_key,
         )
+        copied = True
         print(f"[QUARANTINE] Copied {document} -> {dest_key} | Reason: {reason}")
     except Exception as e:
         print(f"[QUARANTINE] Failed to copy to review/: {e}")
@@ -231,11 +234,13 @@ def _quarantine_and_notify(s3, bucket, document, reason):
                 Message=(
                     f"ファイル: s3://{bucket}/{document}\n"
                     f"理由: {reason}\n"
-                    f"コピー先: s3://{bucket}/{_REVIEW_PREFIX}{document}"
+                    + (f"コピー先: s3://{bucket}/{_REVIEW_PREFIX}{document}" if copied
+                       else "隔離コピー失敗: 原本を確認してください。")
                 ),
             )
         except Exception as e:
             print(f"[SNS] Publish failed: {e}")
+    return copied
 
 
 def _is_already_processed(s3, bucket, document):
@@ -281,7 +286,7 @@ def _process_event(event, context):
     Keeps the 25-column master schema and historical-weather enrichment, and adds
     the hardening that had only existed in the deployed image: idempotent S3
     processing, OCR-failure quarantine + notification, and filename-assisted date
-    recovery. On an unexpected error the file is quarantined and the error is
+    recovery. On an unexpected error quarantine is attempted and the error is
     re-raised so Lambda can retry / route to a DLQ.
     """
     bucket = event['Records'][0]['s3']['bucket']['name']
@@ -330,12 +335,14 @@ def _process_event(event, context):
         blocks = response['Blocks']
         tables = [b for b in blocks if b['BlockType'] == 'TABLE']
         if not tables:
-            _quarantine_and_notify(s3, bucket, key, "Textract: テーブルが検出されませんでした")
+            copied = _quarantine_and_notify(s3, bucket, key, "Textract: テーブルが検出されませんでした")
             return {
                 'statusCode': 404,
                 'body': 'No table detected in PDF',
                 'status': 'quarantined',
-                'next_action': 'check the PDF scan and upload a readable table again',
+                'quarantined': copied,
+                'next_action': ('check the PDF scan and upload a readable table again' if copied
+                                else 'check the original upload; the review copy could not be created'),
             }
 
         # Map Textract blocks into rows/cols dictionary.
@@ -434,7 +441,7 @@ def _process_event(event, context):
 
     except Exception as e:
         print(f"[CRITICAL ERROR] {str(e)}")
-        _quarantine_and_notify(s3, bucket, key, _failure_reason(e))
+        copied = _quarantine_and_notify(s3, bucket, key, _failure_reason(e))
 
         # **もう一度やっても結果が変わらない失敗は、投げ直さない。**
         #
@@ -458,8 +465,9 @@ def _process_event(event, context):
                 'statusCode': 422,
                 'body': f'Permanently unprocessable: {type(e).__name__}',
                 'status': 'quarantined_permanent_failure',
-                'next_action': 'follow the quarantine notification instructions before retrying',
-                'quarantined': True,
+                'next_action': ('follow the quarantine notification instructions before retrying' if copied
+                                else 'check the original upload; the review copy could not be created'),
+                'quarantined': copied,
             }
 
         # 一時的かもしれない失敗は投げ直す。**Lambda のリトライに意味がある。**
