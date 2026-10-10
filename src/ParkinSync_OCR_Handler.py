@@ -275,7 +275,7 @@ def _mark_as_processed(s3, bucket, document):
         return False
 
 
-def lambda_handler(event, context):
+def _process_event(event, context):
     """
     v1.4.0 - reconciled production handler (Issue #27).
     Keeps the 25-column master schema and historical-weather enrichment, and adds
@@ -464,3 +464,58 @@ def lambda_handler(event, context):
 
         # 一時的かもしれない失敗は投げ直す。**Lambda のリトライに意味がある。**
         raise
+
+
+_SUMMARY_STATUSES = frozenset({
+    'processed', 'processed_tagging_warning', 'already_processed',
+    'quarantined', 'quarantined_permanent_failure', 'skipped',
+})
+_REQUEST_ID = re.compile(
+    r'[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-'
+    r'[0-9a-fA-F]{4}-[0-9a-fA-F]{12}'
+)
+
+
+def _emit_execution_summary(context, result=None, *, raised=False):
+    """Emit only bounded operational metadata, without changing processing.
+
+    Request IDs correlate one invocation, not an S3 object or a retry cohort.
+    Existing detailed logs are unchanged; this line does not sanitize them.
+    Missing metadata stays unknown, and a returned status is not human review.
+    """
+    try:
+        request_id = getattr(context, 'aws_request_id', None)
+        if not isinstance(request_id, str) or not _REQUEST_ID.fullmatch(request_id):
+            request_id = None
+        status = result.get('status') if isinstance(result, dict) else None
+        if not isinstance(status, str) or status not in _SUMMARY_STATUSES:
+            status = 'unknown'
+        rows = result.get('rows_processed') if isinstance(result, dict) else None
+        if type(rows) is not int or not 0 <= rows <= 2**53 - 1:
+            rows = None
+        print('[EXECUTION_SUMMARY] ' + json.dumps({
+            'schema_version': 1,
+            'handler': 'ocr',
+            'request_id': request_id,
+            'event_id': None,
+            'execution_outcome': 'raised' if raised else 'returned',
+            'processing_status': 'unknown' if raised else status,
+            'rows_processed': None if raised else rows,
+            'source_freshness': 'UNMEASURED',
+            'human_review': 'UNVERIFIED',
+        }, sort_keys=True, allow_nan=False))
+    except Exception:
+        # Observability must not mask the result or the original exception.
+        # Avoid logging a fallback exception which could contain private data.
+        pass
+
+
+def lambda_handler(event, context):
+    """Process the existing event and emit a minimal invocation summary."""
+    try:
+        result = _process_event(event, context)
+    except Exception:
+        _emit_execution_summary(context, raised=True)
+        raise
+    _emit_execution_summary(context, result)
+    return result
