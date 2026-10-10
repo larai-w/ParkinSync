@@ -956,7 +956,8 @@ def _process_event(event, context):
         # ⚠️ **本来の処理を終えてから行う。** ここで失敗しても、
         # その回のサンプル記録と当日の集計は既に済んでいる。
         # **補修が本業を巻き込まないようにする。**
-        backfill = {"filled": 0, "dates": []}
+        # Failure may follow partial writes, so its count must remain unknown.
+        backfill = {"filled": None, "dates": []}
         try:
             backfill = backfill_missing_aggregates(
                 service, spreadsheet_id, telemetry_rows, sample_time.date()
@@ -967,11 +968,11 @@ def _process_event(event, context):
         print(
             f"{label}: sample={'duplicate' if duplicate else 'logged'} "
             f"aggregate={aggregate_result['status']} "
-            f"backfilled={backfill['filled']}"
+            f"backfilled={backfill['filled'] if backfill['filled'] is not None else 'unknown'}"
         )
         if backfill["filled"]:
             print(f"Backfilled aggregates for: {', '.join(backfill['dates'])}")
-        elif not aggregate_done:
+        elif backfill["filled"] == 0 and not aggregate_done:
             # **なぜ埋まらなかったのか**を残す（CSI-014 に残っていた問い）。
             # 行が無いのか、B列の書式が読めていないのかで、次の手が変わる。
             print(

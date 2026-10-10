@@ -70,6 +70,12 @@ exist, or when the target date has no valid telemetry. A later scheduled invocat
 date automatically while that local date is active. Cross-midnight and delayed deliveries are assigned
 to the actual sensor-poll date; they are not backdated to the EventBridge schedule time.
 
+After the current sample and daily aggregate, the Lambda attempts to fill missing historical
+aggregates. If this backfill raises an error, the main result is preserved and `backfilled` is `null`
+(the execution summary also reports an unknown count). Some historical writes may already have
+completed; `null` does not mean zero writes or rolled-back data. Review the existing rows before a
+manual retry. A numeric count reports the helper's result, not independent readback or full coverage.
+
 ### Recovery
 
 1. Check the `aggregate` status in the Lambda response or CloudWatch log.
