@@ -22,9 +22,11 @@ To ingest clinical bedside records into the active analytics pipeline, follow th
 | `processed` | Rows were written and the source object was marked processed. | Review the imported rows in the Master sheet against the source paper. |
 | `processed_tagging_warning` | Rows may have been written, but the object could not be marked processed. A duplicate event could create duplicate rows. | Do **not** upload the same file again. Resolve the tagging warning and check the Master sheet before any retry. |
 | `already_processed` | The object was already marked processed; no duplicate rows were added by this event. | No re-upload is needed. Review the existing Master rows if confirmation is required. |
-| `quarantined` | The PDF did not contain a readable table and was copied to `review/`. No successful ingestion is indicated. | Inspect the scan, correct it, and upload a new readable one-page file. |
-| `quarantined_permanent_failure` | The file has a format or document problem that retrying unchanged will not fix. It was copied to `review/`. | Follow the quarantine notice, correct the file (for example, split a multi-page PDF), then upload the corrected file. |
-| Unexpected error | A temporary service failure may be retried by Lambda; the file is also sent to the review path for inspection. | Do not manually re-upload while the retry outcome is unknown. Check the error and quarantine notification first. |
+| `quarantined` | The PDF did not contain a readable table. A copy to `review/` was attempted; `quarantined` in the response reports whether the copy request completed. No successful ingestion is indicated. | Inspect the scan, correct it, and upload a new readable one-page file. |
+| `quarantined_permanent_failure` | The file has a format or document problem that retrying unchanged will not fix. A copy to `review/` was attempted; check the response's `quarantined` flag. | Follow the quarantine notice, correct the file (for example, split a multi-page PDF), then upload the corrected file. |
+| Unexpected error | A temporary service failure may be retried by Lambda; a copy to the review path is also attempted for inspection. | Do not manually re-upload while the retry outcome is unknown. Check the error and quarantine notification first. |
+
+If `quarantined` is `false`, the review copy could not be created. Check the original upload instead of looking for a review copy. A `true` flag records a completed copy request; it does not confirm independent readback, notification delivery, or human review. The legacy status names above describe the processing outcome, so do not use the status name alone as proof of a stored review copy.
 
 Reviewing an imported row means checking the date, transcription, and any flagged fields against the source paper. It does not turn an observation into a diagnosis or treatment recommendation.
 
