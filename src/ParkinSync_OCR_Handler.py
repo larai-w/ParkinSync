@@ -146,8 +146,9 @@ def get_historical_weather(date_str, api_key, fallback_month=None):
         emoji = get_weather_emoji(day_data['conditions'])
         summary = f"{emoji} Avg:{day_data['temp']}/Min:{day_data['tempmin']}/Max:{day_data['tempmax']} ({day_data['conditions']})"
         return summary, day_data
-    except Exception as e:
-        print(f"Weather Fetch Warning for {date_str}: {e}")
+    except Exception:
+        # Exceptions may contain authenticated URLs or source record dates.
+        print("Weather fetch unavailable; continuing without weather enrichment.")
         return "Weather N/A", None
 
 
