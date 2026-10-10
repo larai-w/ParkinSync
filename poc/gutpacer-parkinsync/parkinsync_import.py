@@ -5,6 +5,7 @@ Bowel / Movi / Med 列へマージする。欠測は欠測（None=空欄）の�
 - Bowel: その日の観測された排便(bowel_movement, missingness=observed)の件数。
          観測0だが confirmed_none がある日は 0（＝確認された無し）。どちらも無ければ None（欠測）。
 - Movi : その日の movicol_taken の doseSachets 合計。無ければ None（欠測）。
+         包数不明/不正の観測が1件でもあれば日次合計も None。服用枠を包数へ変換しない。
 - Med  : その日の観測された服薬(medication_taken, missingness=observed)の**件数**。
 
   ⚠️ **記録が無い日を 0 にしない。**（2026-08-31）
@@ -22,9 +23,23 @@ Bowel / Movi / Med 列へマージする。欠測は欠測（None=空欄）の�
 """
 from __future__ import annotations
 from collections import defaultdict
+from math import isfinite
 
 # ParkinSync master schema の対象列（他列はこのPoCでは触らない）
 PARKINSYNC_COLUMNS = ["Date", "Bowel", "Movi", "Med"]
+
+
+def _dose_total(events: list[dict]) -> int | float | None:
+    """Sum recorded numeric doses only when every observed dose is known."""
+    if not events:
+        return None
+    doses = [event["payload"].get("doseSachets") for event in events]
+    for dose in doses:
+        if type(dose) not in (int, float) or dose < 0:
+            return None
+        if isinstance(dose, float) and not isfinite(dose):
+            return None
+    return sum(doses)
 
 
 def import_to_daily(events: list[dict]) -> dict[str, dict]:
@@ -54,7 +69,7 @@ def import_to_daily(events: list[dict]) -> dict[str, dict]:
         else:
             bowel = None         # 欠測（空欄）
 
-        movi_total = sum(int(e["payload"].get("doseSachets", 0)) for e in movi) if movi else None
+        movi_total = _dose_total(movi)
 
         if med_observed:
             med = len(med_observed)
