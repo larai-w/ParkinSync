@@ -748,11 +748,13 @@ def _signed_headers(token, secret):
 
 
 def _switchbot_status(url, token, secret, attempts=3, timeout=15, deadline=None):
-    """GET device status, retrying transient timeouts/connection errors.
+    """GET device status with bounded network and transient HTTP retries.
 
-    Auth failures (401/4xx) fail fast via raise_for_status (not retried), since
-    those indicate a credential/signing problem, not a transient one. Each retry
-    re-signs with a fresh timestamp and nonce.
+    Auth failures and other non-transient HTTP errors fail fast. HTTP 429 and
+    500/502/503/504 can retry within the existing attempt/deadline budget. Each
+    retry re-signs with a fresh timestamp and nonce. HTTP waits are at most five
+    seconds; longer, malformed or HTTP-date Retry-After values stop this call
+    rather than being ignored or shortened.
 
     リトライ予算は、それ単体では成立していても**関数全体の時間には収まらない**。
     2026-08-26 に数えたところ:
@@ -792,6 +794,25 @@ def _switchbot_status(url, token, secret, attempts=3, timeout=15, deadline=None)
             print(f"SwitchBot response: {int((time.monotonic() - started) * 1000)}ms "
                   f"attempt={attempt + 1}")
             return response
+        except requests.HTTPError as exc:
+            failed = exc.response
+            if (failed is None or failed.status_code not in (429, 500, 502, 503, 504)
+                    or attempt >= attempts - 1):
+                raise
+            wait = 2 ** attempt
+            retry_after = failed.headers.get("Retry-After")
+            if retry_after is not None:
+                value = retry_after.strip()
+                if not re.fullmatch(r"[0-9]{1,6}", value):
+                    raise
+                wait = max(wait, int(value))
+            if wait > 5 or (deadline is not None and
+                            time.monotonic() + wait + timeout > deadline):
+                raise
+            last_exc = exc
+            print(f"SwitchBot HTTP retry: status={failed.status_code} "
+                  f"attempt={attempt + 1} wait={wait}s")
+            time.sleep(wait)
         except (requests.Timeout, requests.ConnectionError) as exc:
             elapsed = int((time.monotonic() - started) * 1000)
             print(f"SwitchBot failed: {elapsed}ms attempt={attempt + 1} "
