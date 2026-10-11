@@ -633,6 +633,7 @@ def backfill_missing_aggregates(service, spreadsheet_id, telemetry_rows, today,
     # 減らないし、減らなくても集計は埋まっている。**知りたいのは
     # 「計測値があるのに集計が書かれていない日が何日あるか」**。
     coverage = {"with_telemetry": 0, "row_found": 0, "already_filled": 0,
+                "partially_filled": 0,
                 "row_missing": 0, "row_duplicated": 0}
     # 行が引けなかった日を覚えておく。**日付だけで、記録の中身は持たない。**
     missing_days = []
@@ -654,7 +655,15 @@ def backfill_missing_aggregates(service, spreadsheet_id, telemetry_rows, today,
         coverage["row_found"] += 1
         row_number = matches[0]
         if _has_aggregate(agg_rows, row_number):
-            coverage["already_filled"] += 1
+            # Occupied rows remain protected even when some U:X cells are
+            # missing. Four populated cells describe presence, not validity
+            # or agreement with telemetry; partial rows need human review.
+            cells = agg_rows[row_number - 2]
+            complete = len(cells) >= 4 and all(
+                cell is not None and str(cell).strip() for cell in cells[:4]
+            )
+            key = "already_filled" if complete else "partially_filled"
+            coverage[key] += 1
             continue                      # 既に入っている。**上書きしない**
         aggregate = _summarize(temperatures)
         updates.append({
