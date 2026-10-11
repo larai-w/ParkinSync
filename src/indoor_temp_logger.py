@@ -143,6 +143,7 @@ _MONTH_DAY_RE = re.compile(r"^([A-Za-z]+)\.?\s+(\d{1,2})$")
 # 無ければ A列から渡された年を使う。**どちらも無ければ読まない。**
 _JP_DATE_RE = re.compile(
     r"^\s*(?:(?P<year>\d{4})\s*年\s*)?(?P<month>\d{1,2})\s*月\s*(?P<day>\d{1,2})\s*日"
+    r"\s*(?:\([月火水木金土日](?:曜日)?\)|（[月火水木金土日](?:曜日)?）)?\s*$"
 )
 
 
@@ -152,7 +153,9 @@ def _parse_jp_date(text, year=None):
     本文に年があればそれを使う。無ければ `year`（A列由来）を使う。
     **どちらも無ければ None。** 推測して埋めない。
     """
-    match = _JP_DATE_RE.match(text)
+    # Require a complete single date (optionally with a weekday). A prefix
+    # match would assign ranges or annotated totals to the first day's row.
+    match = _JP_DATE_RE.fullmatch(text)
     if not match:
         return None
     resolved = int(match.group("year")) if match.group("year") else year
