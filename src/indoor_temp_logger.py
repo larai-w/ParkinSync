@@ -179,9 +179,9 @@ def _parse_month_day(text):
 
 
 def _year_from_cell(value):
-    """A列の値から年を取り出す。4桁の年に見えなければ None（＝推測しない）。"""
-    match = _YEAR_RE.search(str(value or ""))
-    return int(match.group()) if match else None
+    """A列の値から一意の年だけを取り出す。複数の年からは推測しない。"""
+    years = {int(match) for match in _YEAR_RE.findall(str(value or ""))}
+    return next(iter(years)) if len(years) == 1 else None
 
 
 def _temperature(value):
