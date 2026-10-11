@@ -39,7 +39,13 @@ def _dose_total(events: list[dict]) -> int | float | None:
             return None
         if isinstance(dose, float) and not isfinite(dose):
             return None
-    return sum(doses)
+    try:
+        total = sum(doses)
+    except OverflowError:
+        return None
+    if isinstance(total, float) and not isfinite(total):
+        return None
+    return total
 
 
 def import_to_daily(events: list[dict]) -> dict[str, dict]:
