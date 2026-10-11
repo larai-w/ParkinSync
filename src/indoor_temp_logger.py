@@ -1016,8 +1016,13 @@ def _process_event(event, context):
             }),
         }
 
-    except Exception as error:
-        print(f"Telemetry logging failed: {error}")
+    except Exception:
+        # Error bodies may contain service URLs or response content. Logging
+        # must also never replace the original processing exception.
+        try:
+            print("Telemetry logging failed: processing error")
+        except Exception:
+            pass
         raise
 
 
