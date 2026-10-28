@@ -14,3 +14,6 @@ if command -v gitleaks >/dev/null 2>&1; then
 else
   echo "warning: gitleaks is unavailable; install it to enable the local staged secret scan."
 fi
+
+# AI エージェント用の指示書（AGENTS.md など）の見張り（2026-10-28・arXiv 2610.09264）
+python3 scripts/check_rule_files.py || exit 1
