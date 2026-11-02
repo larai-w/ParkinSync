@@ -1,7 +1,8 @@
 name: Rule-file guard
 
 # AI agent instruction files (AGENTS.md, CLAUDE.md, ...) must not tell an agent
-# to install packages, change registries, or pipe downloads into a shell.
+# to install packages, change registries, or pipe downloads into a shell, and
+# they, README and TODO files must not hide instructions for an agent.
 # See scripts/check_rule_files.py for the reason.
 on:
   pull_request:
