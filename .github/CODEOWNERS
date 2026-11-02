@@ -1,0 +1,18 @@
+# Files that AI coding agents read as instructions or as trusted context.
+# A preprint (arXiv 2610.38867) found agents follow an instruction placed in a
+# README or TODO about 2.6x as often as the same text in a code or data file.
+# scripts/check_rule_files.py fails CI on hidden text in these files; this
+# file asks for the owner's review when they change.
+AGENTS.md @larai-w
+CLAUDE.md @larai-w
+GEMINI.md @larai-w
+.cursorrules @larai-w
+.windsurfrules @larai-w
+copilot-instructions.md @larai-w
+README* @larai-w
+TODO* @larai-w
+
+# The guard itself, its workflow, and this file.
+/scripts/check_rule_files.py @larai-w
+/.github/workflows/rule-file-guard.yml @larai-w
+/.github/CODEOWNERS @larai-w
