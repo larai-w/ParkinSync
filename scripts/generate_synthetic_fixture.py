@@ -51,7 +51,7 @@ def build_rows() -> list[dict[str, object]]:
                 "Bowel": 0 if index % 4 == 1 else 1,
                 "Movi": 1 if index % 7 == 2 else 0,
                 "Emerg_Call": 0,
-                "Ryusei_Eme": 0,
+                "NurseVisit_Eme": 0,
                 "Condition_C": conditions[index % len(conditions)],
                 "Condition_Num": 1 + ((index * 2 + 1) % 5),
                 "Daily_Notes": f"SYNTHETIC_SCENARIO_{scenario:03d}",
