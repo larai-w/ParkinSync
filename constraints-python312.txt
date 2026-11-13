@@ -18,7 +18,7 @@ googleapis-common-protos==1.75.5
 httplib2==0.32.0
 idna==3.20
 jmespath==1.1.0
-numpy==2.5.3
+numpy==2.5.4
 opentelemetry-api==1.45.1
 pandas==3.0.6
 proto-plus==1.29.0
