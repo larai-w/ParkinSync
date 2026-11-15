@@ -20,3 +20,9 @@ updates:
         versions: [">=6.5.0"]
       - dependency-name: "pydantic"
         update-types: ["version-update:semver-major"]
+
+  # Keeps the SHA-pinned GitHub Actions current (SHA and version comment together).
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "monthly"
