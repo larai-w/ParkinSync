@@ -23,6 +23,20 @@ TEMP_HISTORY_SHEET = os.environ.get("TEMP_HISTORY_SHEET", "TempHistory")
 MASTER_SHEET = os.environ.get("MASTER_SHEET", "Sheet1")
 JST = datetime.timezone(datetime.timedelta(hours=9))
 SHEETS_HTTP_TIMEOUT = int(os.environ.get("SHEETS_HTTP_TIMEOUT", "8"))
+# 読み込み（values.get）だけ、通信の一時的な詰まりで再試行する回数。
+# 2026-10-22・2026-11-16 の朝、TempHistory の読み込みが1回だけ
+# `TimeoutError` になり、その回の記録が丸ごと失敗してアラームが鳴った
+# （1分後の Lambda の再実行では記録できていた）。
+# ⚠️ **書き込み（append・batchUpdate）は再試行しない。** 時間切れでも
+# サーバー側では書けていることがあり、ここで繰り返すと同じ行が2回入る。
+# 書き込みの失敗は従来どおり Lambda の再実行に任せる（再実行は
+# TempHistory を読み直して重複を見分ける）。
+# 時間の足し算: 1回の詰まりで最大 +8秒（タイムアウト）+ 2秒（待ち）。
+# 実測 34秒 + 10秒 = 44秒 < SHEETS_TIME_RESERVE_SECONDS の 45秒。
+# 同じ読み込みが2回続けて詰まると +22秒で 45秒を超える。そのときも
+# 関数の上限（120秒）までは余裕があり、超えるのは SwitchBot の再試行で
+# 締切ぎりぎりまで使った回だけ。
+SHEETS_READ_RETRIES = int(os.environ.get("SHEETS_READ_RETRIES", "2"))
 
 
 def _sheet_ref(sheet_name):
@@ -520,7 +534,7 @@ def fetch_date_cell_types(service, spreadsheet_id):
         range=f"{_sheet_ref(MASTER_SHEET)}!A2:B",
         valueRenderOption="UNFORMATTED_VALUE",
         fields="values",
-    ).execute().get("values", [])
+    ).execute(num_retries=SHEETS_READ_RETRIES).get("values", [])
     return diagnose_date_cell_types(rows)
 
 
@@ -531,7 +545,7 @@ def fetch_year_source_diagnosis(service, spreadsheet_id):
         range=f"{_sheet_ref(MASTER_SHEET)}!{_YEAR_SCAN_RANGE}",
         valueRenderOption="FORMATTED_VALUE",
         fields="values",
-    ).execute().get("values", [])
+    ).execute(num_retries=SHEETS_READ_RETRIES).get("values", [])
     return diagnose_year_source(rows)
 
 
@@ -610,14 +624,14 @@ def backfill_missing_aggregates(service, spreadsheet_id, telemetry_rows, today,
         range=f"{_sheet_ref(MASTER_SHEET)}!A2:B",
         valueRenderOption="FORMATTED_VALUE",
         fields="values",
-    ).execute().get("values", [])
+    ).execute(num_retries=SHEETS_READ_RETRIES).get("values", [])
 
     agg_rows = values_api.get(
         spreadsheetId=spreadsheet_id,
         range=f"{_sheet_ref(MASTER_SHEET)}!U2:X",
         valueRenderOption="FORMATTED_VALUE",
         fields="values",
-    ).execute().get("values", [])
+    ).execute(num_retries=SHEETS_READ_RETRIES).get("values", [])
 
     # 引き当てに使う表を**先に1回だけ**作る。
     master = index_master_dates(date_rows)
@@ -705,7 +719,7 @@ def sync_daily_aggregate(service, spreadsheet_id, telemetry_rows, target_date):
         range=f"{_sheet_ref(MASTER_SHEET)}!A2:B",
         valueRenderOption="FORMATTED_VALUE",
         fields="values",
-    ).execute()
+    ).execute(num_retries=SHEETS_READ_RETRIES)
     matches = _master_row_numbers(date_response.get("values", []), target_date)
 
     if not matches:
@@ -930,7 +944,7 @@ def _process_event(event, context):
             range=f"{_sheet_ref(TEMP_HISTORY_SHEET)}!A:C",
             valueRenderOption="FORMATTED_VALUE",
             fields="values",
-        ).execute()
+        ).execute(num_retries=SHEETS_READ_RETRIES)
         telemetry_rows = list(history_response.get("values", []))
 
         duplicate = sample_already_logged(telemetry_rows, event_id, sample_time)
