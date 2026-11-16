@@ -1,4 +1,4 @@
-Processed,Date,Day,Morning,Lunch,Evening,Bedtime,Bedtime_2,Bowel,Movi,Emerg_Call,Ryusei_Eme,Condition_C,Condition_Num,Daily_Notes,Weather_Summary,Weather_Avg,Weather_Min,Weather_Max,Weather_Condition,Switchbot_Summary,Switchbot_Avg,Switchbot_Min,Switchbot_Max,File_Name
+Processed,Date,Day,Morning,Lunch,Evening,Bedtime,Bedtime_2,Bowel,Movi,Emerg_Call,NurseVisit_Eme,Condition_C,Condition_Num,Daily_Notes,Weather_Summary,Weather_Avg,Weather_Min,Weather_Max,Weather_Condition,Switchbot_Summary,Switchbot_Avg,Switchbot_Min,Switchbot_Max,File_Name
 TRUE,2035/01/01,Mon,07:00,12:00,18:00,21:00,,1,0,0,0,A,2,SYNTHETIC_SCENARIO_001,SYNTHETIC_WEATHER_001,7.5,5.0,10.5,synthetic-clear,SYNTHETIC_INDOOR_001,19.8,19.0,20.7,synthetic/scenario_001.pdf
 TRUE,2035/01/02,Tue,07:05,12:03,18:04,21:02,,0,0,0,0,B,4,SYNTHETIC_SCENARIO_002,SYNTHETIC_WEATHER_002,11.0,8.5,14.0,synthetic-cloudy,SYNTHETIC_INDOOR_002,21.8,21.0,22.7,synthetic/scenario_002.pdf
 TRUE,2035/01/03,Wed,07:10,12:06,18:08,21:04,,1,1,0,0,C,1,SYNTHETIC_SCENARIO_003,SYNTHETIC_WEATHER_003,8.0,5.5,11.0,synthetic-rain,SYNTHETIC_INDOOR_003,20.2,19.4,21.1,synthetic/scenario_003.pdf

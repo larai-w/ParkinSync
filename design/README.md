@@ -10,7 +10,7 @@ This directory contains the structural definitions and analog logging templates 
 1. **Processed**: Automated JST timestamp of system execution.
 2. **Date / Day**: The exact clinical tracking event date and corresponding weekday.
 3. **Morning / Lunch / Evening / Bedtime / Bedtime_2**: Five distinct temporal windows mapping daily medication intake schedules.
-4. **Bowel / Movi / Emerg_Call / Ryusei_Eme / Condition_C / Condition_Num**: Quantitative and qualitative clinical biomarkers (e.g., symptom index scales, bowel movements, and emergency events).
+4. **Bowel / Movi / Emerg_Call / NurseVisit_Eme / Condition_C / Condition_Num**: Quantitative and qualitative clinical biomarkers (e.g., symptom index scales, bowel movements, and emergency events).
 5. **Daily_Notes**: Unstructured free-text clinical logs collected at the care frontier.
 6. **Weather_Summary to Weather_Condition**: Five meteorological tracking metrics resolved from external weather stream APIs.
 7. **Switchbot_Summary to Switchbot_Max**: High-fidelity indoor ambient telemetry variables captured at the client environment.
@@ -26,6 +26,12 @@ manifest declares the ledger contract. Generation, synthetic analysis and the
 public-artifact check reject a changed template even when the fixture changes with it.
 These checks cover tracked synthetic CSV consumers; they do not verify deployed
 Google Sheets, OCR output or production migrations.
+
+Naming note (2026-11): column 12 was renamed from a provider-specific name to the
+neutral `NurseVisit_Eme` (count of urgent visiting-nurse calls). Its position and
+meaning are unchanged, so the contract stays `v1`; only the tracked synthetic
+template, fixture and contract were updated. No production writer or deployed sheet
+was changed by this rename.
 
 Proposed breaking-change procedure: keep the v1 baseline intact. A reorder, rename,
 removal, duplicate or additional column requires a separately reviewed contract
