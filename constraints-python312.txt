@@ -10,7 +10,7 @@ cryptography==50.0.2
 dnspython==2.9.2
 email-validator==2.3.0
 fhir-resources==6.4.0
-google-api-core==2.41.0
+google-api-core==2.44.0
 google-api-python-client==2.201.0
 google-auth==2.62.2
 google-auth-httplib2==0.4.4
