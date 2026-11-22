@@ -30,7 +30,7 @@ pydantic==1.10.26
 pyparsing==3.3.3
 python-dateutil==2.9.0.post0
 requests==2.34.2
-s3transfer==0.19.2
+s3transfer==0.19.3
 scipy==1.18.1
 six==1.17.0
 typing-extensions==4.16.0
