@@ -28,7 +28,7 @@ pyasn1-modules==0.4.2
 pycparser==3.0
 pydantic==1.10.26
 pyparsing==3.3.3
-python-dateutil==2.9.0.post0
+python-dateutil==4.0.0
 requests==2.34.2
 s3transfer==0.19.2
 scipy==1.18.1
